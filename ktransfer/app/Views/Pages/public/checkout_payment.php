@@ -2,6 +2,7 @@
 declare(strict_types=1);
 /** @var string $booking_code */
 /** @var string $csrf_token */
+$mercadoPagoEnabled = !empty($mercado_pago_enabled);
 ?>
 <div class="flow-shell flow-stack">
     <section class="flow-hero">
@@ -42,6 +43,21 @@ declare(strict_types=1);
     </section>
 
     <section class="split-grid">
+        <?php if ($mercadoPagoEnabled): ?>
+            <article class="flow-card flow-stack">
+                <div>
+                    <span class="card-label">Pago en linea</span>
+                    <h2>Mercado Pago</h2>
+                    <p>Paga en sandbox con Mercado Pago. Al aprobarse el pago, la reserva se confirma automaticamente.</p>
+                </div>
+
+                <form method="post" action="/checkout/mercado-pago/start">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="submit">Pagar con Mercado Pago</button>
+                </form>
+            </article>
+        <?php endif; ?>
+
         <article class="flow-card flow-stack">
             <div>
                 <span class="card-label">Metodo de pago</span>
@@ -50,10 +66,10 @@ declare(strict_types=1);
             </div>
 
             <div class="pill-list">
-                <span class="pill">PayPal</span>
-                <span class="pill">Tarjeta de credito o debito</span>
-                <span class="pill">Transferencia bancaria</span>
-                <span class="pill">Pago en efectivo</span>
+                <label class="pill"><input type="radio" name="payment_method" value="PAYPAL" form="confirm-booking-form"> PayPal</label>
+                <label class="pill"><input type="radio" name="payment_method" value="CARD" form="confirm-booking-form"> Tarjeta de credito o debito</label>
+                <label class="pill"><input type="radio" name="payment_method" value="BANK" form="confirm-booking-form" checked> Transferencia bancaria</label>
+                <label class="pill"><input type="radio" name="payment_method" value="CASH" form="confirm-booking-form"> Pago en efectivo</label>
             </div>
 
             <div class="message-box warn">
@@ -68,7 +84,7 @@ declare(strict_types=1);
                 <p>Si todo se ve bien, confirma ahora y el equipo continuara con la reserva.</p>
             </div>
 
-            <form method="post" action="/checkout/payment">
+            <form id="confirm-booking-form" method="post" action="/checkout/payment">
                 <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
                 <button type="submit">Confirmar reserva</button>
             </form>

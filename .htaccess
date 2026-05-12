@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Si la URL ya entra a /public_html, no reescribir
+RewriteRule ^public_html/ - [L]
+
+# Si existe archivo o carpeta real en raíz, respétalo
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Todo lo demás va a public_html
+RewriteRule ^(.*)$ public_html/$1 [L,QSA]

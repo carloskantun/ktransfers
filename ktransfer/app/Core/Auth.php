@@ -62,11 +62,29 @@ class Auth {
         }
 
         $db = DB::connection();
-        $stmt = $db->prepare(
-            'SELECT id, name, email, is_active FROM users WHERE id = :id LIMIT 1'
-        );
-        $stmt->execute(['id' => $userId]);
-        $user = $stmt->fetch();
+        try {
+            $stmt = $db->prepare(
+                'SELECT
+                    u.id,
+                    u.name,
+                    u.email,
+                    u.is_active,
+                    u.provider_id,
+                    p.name AS provider_name
+                 FROM users u
+                 LEFT JOIN providers p ON p.id = u.provider_id
+                 WHERE u.id = :id
+                 LIMIT 1'
+            );
+            $stmt->execute(['id' => $userId]);
+            $user = $stmt->fetch();
+        } catch (\Throwable) {
+            $stmt = $db->prepare(
+                'SELECT id, name, email, is_active FROM users WHERE id = :id LIMIT 1'
+            );
+            $stmt->execute(['id' => $userId]);
+            $user = $stmt->fetch();
+        }
 
         return is_array($user) ? $user : null;
     }

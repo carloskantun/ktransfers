@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\CurrenciesController;
 use App\Http\Controllers\Admin\HomeContentController;
 use App\Http\Controllers\Admin\OperationsAgendaController;
 use App\Http\Controllers\Admin\PaxRangesController;
+use App\Http\Controllers\Admin\ProvidersController;
 use App\Http\Controllers\Public\CheckoutController;
 use App\Http\Controllers\Public\SearchController;
 use App\Http\Middlewares\RequireAuth;
@@ -60,7 +61,12 @@ class App {
         $this->router->post('/checkout/details', CheckoutController::class . '@saveDetails');
         $this->router->get('/checkout/payment', CheckoutController::class . '@payment');
         $this->router->post('/checkout/payment', CheckoutController::class . '@pay');
+        $this->router->post('/checkout/mercado-pago/start', CheckoutController::class . '@startMercadoPago');
+        $this->router->get('/checkout/mercado-pago/return', CheckoutController::class . '@mercadoPagoReturn');
         $this->router->get('/checkout/confirmation', CheckoutController::class . '@confirmation');
+        $this->router->get('/checkout/voucher', CheckoutController::class . '@voucher');
+        $this->router->post('/webhooks/mercado-pago', CheckoutController::class . '@mercadoPagoWebhook');
+        $this->router->get('/webhooks/mercado-pago', CheckoutController::class . '@mercadoPagoWebhook');
 
         // Admin auth routes (no middleware)
         $this->router->get('/admin/login', AuthController::class . '@showLogin');
@@ -70,10 +76,18 @@ class App {
         // Admin routes (protected)
         $this->router->get('/admin', DashboardController::class . '@index');
         $this->router->get('/admin/bookings', BookingsController::class . '@index');
+        $this->router->get('/admin/bookings/quote', BookingsController::class . '@quote');
         $this->router->get('/admin/bookings/create', BookingsController::class . '@create');
         $this->router->post('/admin/bookings/create', BookingsController::class . '@create');
         $this->router->get('/admin/bookings/edit', BookingsController::class . '@edit');
+        $this->router->get('/admin/bookings/service-order', BookingsController::class . '@serviceOrder');
+        $this->router->get('/admin/bookings/voucher', BookingsController::class . '@voucher');
+        $this->router->get('/admin/bookings/export', BookingsController::class . '@export');
+        $this->router->get('/admin/bookings/print', BookingsController::class . '@print');
         $this->router->post('/admin/bookings/update', BookingsController::class . '@update');
+        $this->router->post('/admin/bookings/delete-request', BookingsController::class . '@requestDelete');
+        $this->router->post('/admin/bookings/delete-review', BookingsController::class . '@reviewDeleteRequest');
+        $this->router->post('/admin/bookings/delete', BookingsController::class . '@delete');
         
         $this->router->get('/admin/catalog/zones', ZonesController::class . '@index');
         $this->router->get('/admin/catalog/zones/create', ZonesController::class . '@create');
@@ -95,14 +109,22 @@ class App {
         $this->router->post('/admin/catalog/vehicles/create', VehiclesController::class . '@create');
         $this->router->get('/admin/catalog/vehicles/edit', VehiclesController::class . '@edit');
         $this->router->post('/admin/catalog/vehicles/edit', VehiclesController::class . '@edit');
+
+        $this->router->get('/admin/catalog/providers', ProvidersController::class . '@index');
+        $this->router->get('/admin/catalog/providers/create', ProvidersController::class . '@create');
+        $this->router->post('/admin/catalog/providers/create', ProvidersController::class . '@create');
+        $this->router->get('/admin/catalog/providers/edit', ProvidersController::class . '@edit');
+        $this->router->post('/admin/catalog/providers/edit', ProvidersController::class . '@edit');
         
         $this->router->get('/admin/catalog/places', PlacesController::class . '@index');
+        $this->router->get('/admin/catalog/places/export', PlacesController::class . '@export');
         $this->router->get('/admin/catalog/places/create', PlacesController::class . '@create');
         $this->router->post('/admin/catalog/places/create', PlacesController::class . '@create');
         $this->router->get('/admin/catalog/places/edit', PlacesController::class . '@edit');
         $this->router->post('/admin/catalog/places/edit', PlacesController::class . '@edit');
         
         $this->router->get('/admin/catalog/airlines', AirlinesController::class . '@index');
+        $this->router->get('/admin/catalog/airlines/export', AirlinesController::class . '@export');
         $this->router->get('/admin/catalog/airlines/create', AirlinesController::class . '@create');
         $this->router->post('/admin/catalog/airlines/create', AirlinesController::class . '@create');
         $this->router->get('/admin/catalog/airlines/edit', AirlinesController::class . '@edit');
@@ -120,8 +142,12 @@ class App {
         $this->router->post('/admin/pricing/pax-ranges/edit', PaxRangesController::class . '@edit');
         
         $this->router->get('/admin/accounting', AccountingController::class . '@index');
+        $this->router->get('/admin/accounting/export', AccountingController::class . '@export');
         $this->router->get('/admin/kpis', KpisController::class . '@index');
+        $this->router->get('/admin/kpis/export', KpisController::class . '@export');
         $this->router->get('/admin/operations/agenda', OperationsAgendaController::class . '@index');
+        $this->router->get('/admin/operations/agenda/print', OperationsAgendaController::class . '@print');
+        $this->router->get('/admin/operations/agenda/export', OperationsAgendaController::class . '@export');
         $this->router->post('/admin/operations/agenda', OperationsAgendaController::class . '@update');
 
         $this->router->get('/admin/users', UsersController::class . '@index');
@@ -185,9 +211,17 @@ class App {
         $permissions = [
             '/admin' => 'dashboard.view',
             '/admin/bookings' => 'bookings.view',
-            '/admin/bookings/create' => 'bookings.manage',
-            '/admin/bookings/edit' => 'bookings.manage',
-            '/admin/bookings/update' => 'bookings.manage',
+            '/admin/bookings/quote' => 'bookings.create',
+            '/admin/bookings/create' => 'bookings.create',
+            '/admin/bookings/edit' => 'bookings.create',
+            '/admin/bookings/service-order' => 'bookings.manage',
+            '/admin/bookings/voucher' => 'bookings.view',
+            '/admin/bookings/export' => 'bookings.view',
+            '/admin/bookings/print' => 'bookings.view',
+            '/admin/bookings/update' => 'bookings.create',
+            '/admin/bookings/delete-request' => 'bookings.delete.request',
+            '/admin/bookings/delete-review' => 'bookings.delete.approve',
+            '/admin/bookings/delete' => 'bookings.manage',
             '/admin/catalog/zones' => 'catalog.manage',
             '/admin/catalog/zones/create' => 'catalog.manage',
             '/admin/catalog/zones/edit' => 'catalog.manage',
@@ -199,10 +233,15 @@ class App {
             '/admin/catalog/vehicles' => 'catalog.manage',
             '/admin/catalog/vehicles/create' => 'catalog.manage',
             '/admin/catalog/vehicles/edit' => 'catalog.manage',
+            '/admin/catalog/providers' => 'catalog.manage',
+            '/admin/catalog/providers/create' => 'catalog.manage',
+            '/admin/catalog/providers/edit' => 'catalog.manage',
             '/admin/catalog/places' => 'catalog.manage',
+            '/admin/catalog/places/export' => 'catalog.manage',
             '/admin/catalog/places/create' => 'catalog.manage',
             '/admin/catalog/places/edit' => 'catalog.manage',
             '/admin/catalog/airlines' => 'catalog.manage',
+            '/admin/catalog/airlines/export' => 'catalog.manage',
             '/admin/catalog/airlines/create' => 'catalog.manage',
             '/admin/catalog/airlines/edit' => 'catalog.manage',
             '/admin/pricing/rate-rules' => 'pricing.manage',
@@ -212,12 +251,16 @@ class App {
             '/admin/pricing/pax-ranges/create' => 'pricing.manage',
             '/admin/pricing/pax-ranges/edit' => 'pricing.manage',
             '/admin/accounting' => 'accounting.view',
+            '/admin/accounting/export' => 'accounting.view',
             '/admin/kpis' => 'kpis.view',
+            '/admin/kpis/export' => 'kpis.view',
             '/admin/operations/agenda' => 'operations.view',
+            '/admin/operations/agenda/print' => 'operations.view',
+            '/admin/operations/agenda/export' => 'operations.view',
             '/admin/users' => 'users.manage',
             '/admin/users/create' => 'users.manage',
             '/admin/users/edit' => 'users.manage',
-            '/admin/content/home' => 'content.manage',
+            '/admin/content/home' => 'home.manage',
         ];
 
         return $permissions[$path] ?? null;

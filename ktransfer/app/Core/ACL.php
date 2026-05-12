@@ -14,6 +14,15 @@ class ACL {
             return true;
         }
 
+        // Admin y superadmin tienen acceso total sin depender del seed de permisos.
+        if (self::userHasRole($userId, 'superadmin') || self::userHasRole($userId, 'admin')) {
+            return true;
+        }
+
+        if ($permissionCode === 'bookings.create' && self::userHasPermission($userId, 'bookings.manage')) {
+            return true;
+        }
+
         $sql = "
             SELECT COUNT(*) as count
             FROM user_roles ur

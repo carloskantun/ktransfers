@@ -9,10 +9,13 @@ $roundTripForm = $form['round_trip_price'] ?? [];
 $activeForm = $form['is_active'] ?? [];
 ?>
 <div class="page-header">
-    <h1>Editar grupo de tarifas</h1>
+    <div>
+        <h1>Editar grupo de tarifas</h1>
+        <p class="admin-page-note">Actualiza el precio base por moneda para este grupo.</p>
+    </div>
 </div>
 
-<p>
+<p class="admin-meta-line">
     Zona: <strong><?= htmlspecialchars((string) ($group['zone_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong> |
     Servicio: <strong><?= htmlspecialchars((string) ($group['service_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong> |
     PAX: <strong><?= htmlspecialchars((string) ($group['pax_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong>
@@ -36,13 +39,13 @@ $activeForm = $form['is_active'] ?? [];
             Puedes activar o desactivar cada moneda. Si una moneda no tenía tarifa, al guardar se crea automáticamente.
         </p>
 
-        <table>
+        <table class="admin-card-table">
             <thead>
                 <tr>
                     <th>Moneda</th>
                     <th>Descripción</th>
-                    <th>One Way</th>
-                    <th>Round Trip</th>
+                    <th>Solo ida</th>
+                    <th>Round trip</th>
                     <th>Activa</th>
                 </tr>
             </thead>
@@ -50,13 +53,13 @@ $activeForm = $form['is_active'] ?? [];
                 <?php foreach ($currencyRows as $row): ?>
                 <?php $code = (string) ($row['currency_code'] ?? ''); ?>
                 <tr>
-                    <td>
+                    <td data-label="Moneda">
                         <strong><?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?></strong>
                     </td>
-                    <td>
+                    <td data-label="Descripcion">
                         <?= htmlspecialchars((string) ($row['currency_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                     </td>
-                    <td>
+                    <td data-label="Solo ida">
                         <input
                             type="number"
                             name="one_way_price[<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>]"
@@ -66,7 +69,7 @@ $activeForm = $form['is_active'] ?? [];
                             required
                         >
                     </td>
-                    <td>
+                    <td data-label="Round trip">
                         <input
                             type="number"
                             name="round_trip_price[<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>]"
@@ -76,7 +79,7 @@ $activeForm = $form['is_active'] ?? [];
                             required
                         >
                     </td>
-                    <td>
+                    <td data-label="Activa">
                         <label>
                             <input
                                 type="checkbox"

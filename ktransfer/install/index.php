@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <div class="container">
         <h1>Instalador KTransfers</h1>
-        <p class="subtitle">Configura tu base de datos y crea el usuario administrador inicial.</p>
+        <p class="subtitle">Configura tu base de datos y crea usuarios iniciales (admin operativo y superadmin de Home Settings).</p>
 
         <form method="post">
             <h3>Configuración de Base de Datos</h3>
@@ -83,6 +83,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <label>Contraseña</label>
             <input type="password" name="admin_password" required>
+
+            <hr>
+
+            <h3>Usuario Superadmin (solo Home Settings)</h3>
+            <label>Nombre</label>
+            <input type="text" name="superadmin_name" required>
+
+            <label>Email</label>
+            <input type="email" name="superadmin_email" required>
+
+            <label>Contraseña</label>
+            <input type="password" name="superadmin_password" required>
 
             <button type="submit">Instalar</button>
         </form>

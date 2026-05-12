@@ -124,7 +124,7 @@ $showcaseImages = [
             <div class="hero-content">
                 <div class="hero-layout">
                     <div class="hero-main">
-                        <div class="hero-kicker">KTransfers Cancun</div>
+                        <div class="hero-kicker">Express Transfer Cancun</div>
                         <h1><?= $escape($truncate((string) ($homeContent['hero_title'] ?? 'Private Cancun airport transfers'), 64)) ?></h1>
                         <p class="hero-summary"><?= $escape($truncate((string) ($homeContent['hero_subtitle'] ?? 'Book reliable private transportation with a simple premium experience.'), 120)) ?></p>
 

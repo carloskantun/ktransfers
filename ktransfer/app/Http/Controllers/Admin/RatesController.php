@@ -11,18 +11,37 @@ class RatesController {
     public function index(Request $request): Response
     {
         $db = DB::connection();
+        $filters = [
+            'zone_id' => max(0, (int) $request->query('zone_id', 0)),
+            'service_type_id' => max(0, (int) $request->query('service_type_id', 0)),
+            'pax_range_id' => max(0, (int) $request->query('pax_range_id', 0)),
+            'currency_code' => strtoupper(trim((string) $request->query('currency_code', ''))),
+            'status' => strtoupper(trim((string) $request->query('status', ''))),
+        ];
+        if ($filters['currency_code'] !== '' && !preg_match('/^[A-Z]{3}$/', $filters['currency_code'])) {
+            $filters['currency_code'] = '';
+        }
+        if (!in_array($filters['status'], ['', 'ACTIVE', 'PARTIAL', 'MISSING'], true)) {
+            $filters['status'] = '';
+        }
 
         $currencyStmt = $db->query('SELECT code, name, symbol FROM currencies WHERE is_active = 1 ORDER BY code ASC');
-        $currencies = $currencyStmt->fetchAll();
+        $allCurrencies = $currencyStmt->fetchAll();
+        $currencies = array_values(array_filter($allCurrencies, static function (array $currency) use ($filters): bool {
+            return $filters['currency_code'] === '' || strtoupper((string) ($currency['code'] ?? '')) === $filters['currency_code'];
+        }));
 
         $zonesStmt = $db->query('SELECT id, name_es, sort_order FROM zones WHERE is_active = 1 ORDER BY sort_order ASC, id ASC');
         $zones = $zonesStmt->fetchAll();
+        $allZones = $zones;
 
         $servicesStmt = $db->query('SELECT id, name_es, sort_order FROM service_types WHERE is_active = 1 ORDER BY sort_order ASC, id ASC');
         $services = $servicesStmt->fetchAll();
+        $allServices = $services;
 
         $paxStmt = $db->query('SELECT id, label, min_pax, sort_order FROM pax_ranges ORDER BY min_pax ASC, sort_order ASC, id ASC');
         $paxRanges = $paxStmt->fetchAll();
+        $allPaxRanges = $paxRanges;
 
         $existingStmt = $db->query(
             'SELECT
@@ -57,6 +76,15 @@ class RatesController {
                     $zoneId = (int) ($zone['id'] ?? 0);
                     $serviceTypeId = (int) ($service['id'] ?? 0);
                     $paxRangeId = (int) ($paxRange['id'] ?? 0);
+                    if ($filters['zone_id'] > 0 && $filters['zone_id'] !== $zoneId) {
+                        continue;
+                    }
+                    if ($filters['service_type_id'] > 0 && $filters['service_type_id'] !== $serviceTypeId) {
+                        continue;
+                    }
+                    if ($filters['pax_range_id'] > 0 && $filters['pax_range_id'] !== $paxRangeId) {
+                        continue;
+                    }
                     $key = $zoneId . '|' . $serviceTypeId . '|' . $paxRangeId;
 
                     $groupCurrencies = [];
@@ -78,6 +106,11 @@ class RatesController {
                         }
                     }
 
+                    $statusLabel = $allActive ? 'ACTIVE' : ($hasAnyRate ? 'PARTIAL' : 'MISSING');
+                    if ($filters['status'] !== '' && $filters['status'] !== $statusLabel) {
+                        continue;
+                    }
+
                     $rateGroups[] = [
                         'zone_id' => $zoneId,
                         'service_type_id' => $serviceTypeId,
@@ -88,6 +121,7 @@ class RatesController {
                         'currencies' => $groupCurrencies,
                         'all_active' => $allActive,
                         'has_any_rate' => $hasAnyRate,
+                        'status_label' => $statusLabel,
                     ];
                 }
             }
@@ -97,6 +131,11 @@ class RatesController {
             'title' => 'Rate Rules',
             'rate_groups' => $rateGroups,
             'currencies' => $currencies,
+            'all_currencies' => $allCurrencies,
+            'zones' => $allZones,
+            'services' => $allServices,
+            'pax_ranges' => $allPaxRanges,
+            'filters' => $filters,
             'csrf_token' => Csrf::token(),
         ], 'admin');
     }

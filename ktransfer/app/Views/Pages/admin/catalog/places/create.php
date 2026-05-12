@@ -6,7 +6,7 @@
     <h1>Nuevo Lugar</h1>
 </div>
 
-<div class="card">
+<div class="card admin-form-card">
     <form method="post" action="/admin/catalog/places/create">
         <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
 

@@ -17,7 +17,7 @@
 </div>
 <?php endif; ?>
 
-<div class="card">
+<div class="card admin-form-card">
     <form method="post" action="/admin/catalog/airlines/create">
         <input type="hidden" name="csrf_token" value="<?= \App\Core\Csrf::token() ?>">
 
@@ -33,7 +33,7 @@
         </div>
 
         <div class="form-group">
-            <label>
+            <label class="admin-check">
                 <input type="checkbox" name="is_active" value="1" <?= (int)($form['is_active'] ?? 1) === 1 ? 'checked' : '' ?>>
                 Aerolínea Activa
             </label>

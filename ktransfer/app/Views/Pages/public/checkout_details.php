@@ -96,6 +96,11 @@ declare(strict_types=1);
                     <input id="flight_number" type="text" name="flight_number" placeholder="Ejemplo: AA1234">
                 </div>
 
+                <div class="field-block">
+                    <label for="terminal">Terminal</label>
+                    <input id="terminal" type="text" name="terminal" placeholder="Ejemplo: T3">
+                </div>
+
                 <div class="field-block span-2">
                     <label for="pickup_notes">Notas para recogida</label>
                     <textarea id="pickup_notes" name="pickup_notes" rows="4" placeholder="Ejemplo: viajamos con silla de bebe o llegamos con equipaje extra"></textarea>

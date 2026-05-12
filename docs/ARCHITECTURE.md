@@ -1,5 +1,18 @@
 # Arquitectura KTransfers (PHP Vanilla)
 
+## Estado actual
+
+La aplicacion mantiene la arquitectura PHP vanilla original, pero ya opera como base instalable white-label:
+
+- Front controller unico en `public_html/index.php`.
+- Codigo privado en `ktransfer/`.
+- Home publica renderizada por `Public/SearchController@index` y `Views/Pages/public/home.php`.
+- Configuracion de home/marca persistida en `site_content` mediante `HomeContentService`.
+- Panel admin protegido por auth + permisos por ruta.
+- Roles actuales: `admin`, `superadmin`, `operator`, `agency`, `sales`, `accounting`.
+- Checkout publico manual: crea reserva, pasajeros, pago pendiente e historial.
+- Mercado Pago Checkout Pro: crea preferencia, redirige, recibe return/webhook y confirma pagos `approved`.
+
 ## Principios
 1) Todo lo privado vive en `ktransfer/`
 2) Todo lo público vive en `public_html/`
@@ -23,10 +36,17 @@
 - `DB.php`: conexión PDO
 - `Auth.php`: login/logout/sesión
 - `ACL.php`: permisos (RBAC) y helpers
+- `I18n.php`: traducciones publicas EN/ES basicas
+- `StatusCatalog.php`: labels centralizados de estados
 - `Csrf.php`: tokens para forms
 - `Request.php/Response.php`: helpers mínimos
 - `Validator.php`: validaciones
 - `View.php`: render de layouts y pages
+
+## `ktransfer/app/Services`
+- `RateService.php`: cotizacion por zona, servicio, pax, moneda y tipo de viaje.
+- `HomeContentService.php`: defaults, lectura y escritura de `site_content.home_page`.
+- `BrandingService.php`: prefijo y generacion de `booking_code`.
 
 ## `ktransfer/app/Http/Controllers`
 Separación por módulo:
@@ -82,13 +102,18 @@ Entidades núcleo:
 - Assignment (proveedor/vehículo/agencia)
 - Agency (externos)
 - User/Role/Permission (RBAC)
+- SiteContent (configuracion JSON de home/branding)
+- BookingEditLog / BookingDeleteRequest / AdminNotification (auditoria y borrado controlado)
 
 ---
 
 ## Migraciones
 - SQL plano en `ktransfer/database/migrations/*.sql`
 - Runner: `ktransfer/migrate/migrate.php`
+- Runner web: `public_html/migrate/index.php`
 - Tabla `migrations` para registrar ejecutadas
+
+`schema.sql` actua como baseline consolidado para instalaciones nuevas; las migraciones posteriores completan seeds y cambios funcionales. Revisar `docs/CURRENT_STATUS.md` para el estado de migraciones recientes.
 
 ---
 
@@ -97,4 +122,3 @@ Entidades núcleo:
 - Sin dependencias externas
 - PHP nativo + PDO
 - Assets estáticos
-

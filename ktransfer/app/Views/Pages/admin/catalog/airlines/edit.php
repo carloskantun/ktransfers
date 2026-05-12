@@ -16,7 +16,7 @@ $errors = $errors ?? [];
 </div>
 <?php endif; ?>
 
-<div class="card">
+<div class="card admin-form-card">
     <form method="post" action="/admin/catalog/airlines/edit?id=<?= (int) ($form['id'] ?? 0) ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string) $csrf_token, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -31,7 +31,7 @@ $errors = $errors ?? [];
         </div>
 
         <div class="form-group">
-            <label>
+            <label class="admin-check">
                 <input type="checkbox" name="is_active" value="1" <?= (int) ($form['is_active'] ?? 0) === 1 ? 'checked' : '' ?>>
                 Aerolínea Activa
             </label>

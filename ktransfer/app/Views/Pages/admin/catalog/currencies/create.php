@@ -16,7 +16,7 @@ $errors = $errors ?? [];
 </div>
 <?php endif; ?>
 
-<div class="card">
+<div class="card admin-form-card">
     <form method="post" action="/admin/catalog/currencies/create">
         <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) $csrf_token, ENT_QUOTES, 'UTF-8') ?>">
 

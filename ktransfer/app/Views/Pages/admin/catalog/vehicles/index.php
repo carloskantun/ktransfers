@@ -8,7 +8,7 @@
 </div>
 
 <div class="card">
-    <table>
+    <table class="admin-card-table">
         <thead>
             <tr>
                 <th>ID</th>
@@ -22,12 +22,12 @@
         <tbody>
             <?php foreach ($vehicles as $vehicle): ?>
             <tr>
-                <td><?= htmlspecialchars((string)($vehicle['id'] ?? '')) ?></td>
-                <td><?= htmlspecialchars($vehicle['code'] ?? '') ?></td>
-                <td><?= htmlspecialchars($vehicle['name'] ?? '') ?></td>
-                <td><?= htmlspecialchars((string)($vehicle['max_pax'] ?? 0)) ?></td>
-                <td><?= (int)($vehicle['is_active'] ?? 0) === 1 ? 'Sí' : 'No' ?></td>
-                <td><a href="/admin/catalog/vehicles/edit?id=<?= (int) ($vehicle['id'] ?? 0) ?>">Editar</a></td>
+                <td data-label="ID"><?= htmlspecialchars((string)($vehicle['id'] ?? '')) ?></td>
+                <td data-label="Codigo"><?= htmlspecialchars($vehicle['code'] ?? '') ?></td>
+                <td data-label="Nombre"><?= htmlspecialchars($vehicle['name'] ?? '') ?></td>
+                <td data-label="Max pasajeros"><?= htmlspecialchars((string)($vehicle['max_pax'] ?? 0)) ?></td>
+                <td data-label="Activa"><?= (int)($vehicle['is_active'] ?? 0) === 1 ? 'Sí' : 'No' ?></td>
+                <td data-label="Acciones"><a class="admin-row-action" href="/admin/catalog/vehicles/edit?id=<?= (int) ($vehicle['id'] ?? 0) ?>">Editar</a></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

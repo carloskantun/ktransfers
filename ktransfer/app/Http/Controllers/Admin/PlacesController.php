@@ -89,6 +89,62 @@ class PlacesController {
         ], 'admin');
     }
 
+    public function export(Request $request): Response
+    {
+        $db = DB::connection();
+        $search = trim((string) $request->query('q', ''));
+        $zoneId = max(0, (int) $request->query('zone_id', 0));
+
+        $where = [];
+        $params = [];
+        if ($search !== '') {
+            $where[] = 'p.name LIKE :search';
+            $params['search'] = '%' . $search . '%';
+        }
+        if ($zoneId > 0) {
+            $where[] = 'p.zone_id = :zone_id';
+            $params['zone_id'] = $zoneId;
+        }
+        $whereSql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $stmt = $db->prepare("
+            SELECT p.id, p.name, p.type, p.city, p.is_active, z.name_es AS zone_name
+            FROM places p
+            INNER JOIN zones z ON z.id = p.zone_id
+            {$whereSql}
+            ORDER BY z.name_es ASC, p.name ASC
+        ");
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+        }
+        $stmt->execute();
+
+        $handle = fopen('php://temp', 'r+');
+        if ($handle === false) {
+            $csv = '';
+        } else {
+            fputcsv($handle, ['ID', 'Nombre', 'Zona', 'Tipo', 'Ciudad', 'Activa']);
+            foreach ($stmt->fetchAll() as $place) {
+                fputcsv($handle, [
+                    (string) ($place['id'] ?? ''),
+                    (string) ($place['name'] ?? ''),
+                    (string) ($place['zone_name'] ?? ''),
+                    (string) ($place['type'] ?? ''),
+                    (string) ($place['city'] ?? ''),
+                    (int) ($place['is_active'] ?? 0) === 1 ? 'Si' : 'No',
+                ]);
+            }
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+        }
+
+        return new Response("\xEF\xBB\xBF" . (is_string($csv) ? $csv : ''), 200, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="lugares-' . date('Ymd-His') . '.csv"',
+        ]);
+    }
+
     public function create(Request $request): Response
     {
         $db = DB::connection();

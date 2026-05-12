@@ -24,10 +24,13 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(120) NOT NULL,
   email VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  provider_id BIGINT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_users_provider ON users(provider_id);
 
 CREATE TABLE IF NOT EXISTS roles (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -156,31 +159,44 @@ CREATE TABLE IF NOT EXISTS bookings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_code VARCHAR(30) NOT NULL UNIQUE,
   trip_type ENUM('ONE_WAY','ROUND_TRIP') NOT NULL,
+  operation_type ENUM('AIRPORT','INTERHOTEL') NOT NULL DEFAULT 'AIRPORT',
   direction ENUM('AIRPORT_TO_DESTINATION','DESTINATION_TO_AIRPORT') NOT NULL,
   service_type_id BIGINT NOT NULL,
   zone_id BIGINT NOT NULL,
   place_id BIGINT NOT NULL,
+  origin_name VARCHAR(190) NULL,
+  destination_name VARCHAR(190) NULL,
   currency_code CHAR(3) NOT NULL,
   price_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  agency_collected_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  agency_collected_at DATETIME NULL,
   status ENUM('PENDING','CONFIRMED','CANCELLED','NO_SHOW','COMPLETED') NOT NULL DEFAULT 'PENDING',
   payment_status ENUM('UNPAID','PARTIAL','PAID','REFUNDED') NOT NULL DEFAULT 'UNPAID',
   arrival_datetime DATETIME NULL,
   departure_datetime DATETIME NULL,
   airline VARCHAR(120) NULL,
   flight_number VARCHAR(40) NULL,
+  terminal VARCHAR(60) NULL,
   pickup_notes VARCHAR(255) NULL,
   customer_name VARCHAR(120) NOT NULL,
   customer_last_name VARCHAR(120) NULL,
   customer_email VARCHAR(190) NOT NULL,
   customer_phone VARCHAR(60) NULL,
+  agency_name VARCHAR(190) NULL,
+  agency_provider_id BIGINT NULL,
   comments TEXT NULL,
+  created_by_user_id BIGINT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NULL,
   CONSTRAINT fk_booking_service FOREIGN KEY (service_type_id) REFERENCES service_types(id),
   CONSTRAINT fk_booking_zone FOREIGN KEY (zone_id) REFERENCES zones(id),
   CONSTRAINT fk_booking_place FOREIGN KEY (place_id) REFERENCES places(id),
-  CONSTRAINT fk_booking_currency FOREIGN KEY (currency_code) REFERENCES currencies(code)
+  CONSTRAINT fk_booking_currency FOREIGN KEY (currency_code) REFERENCES currencies(code),
+  CONSTRAINT fk_bookings_created_by_user FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_bookings_created_by_user ON bookings(created_by_user_id);
+CREATE INDEX idx_bookings_agency_provider ON bookings(agency_provider_id);
 
 CREATE TABLE IF NOT EXISTS booking_passengers (
   booking_id BIGINT PRIMARY KEY,
@@ -193,7 +209,7 @@ CREATE TABLE IF NOT EXISTS booking_passengers (
 CREATE TABLE IF NOT EXISTS booking_payments (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_id BIGINT NOT NULL,
-  method ENUM('PAYPAL','CARD','BANK','CASH','MANUAL') NOT NULL,
+  method ENUM('PAYPAL','CARD','BANK','CASH','MANUAL','MERCADO_PAGO') NOT NULL,
   status ENUM('PENDING','PAID','FAILED','REFUNDED') NOT NULL DEFAULT 'PENDING',
   amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   currency_code CHAR(3) NOT NULL,
@@ -219,11 +235,18 @@ CREATE TABLE IF NOT EXISTS booking_status_history (
 CREATE TABLE IF NOT EXISTS providers (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(190) NOT NULL,
+  contact_name VARCHAR(190) NULL,
   email VARCHAR(190) NULL,
   phone VARCHAR(60) NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE users
+  ADD CONSTRAINT fk_users_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL;
+
+ALTER TABLE bookings
+  ADD CONSTRAINT fk_bookings_agency_provider FOREIGN KEY (agency_provider_id) REFERENCES providers(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS assignments (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,

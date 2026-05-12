@@ -8,7 +8,7 @@ $currencies = $currencies ?? [];
 </div>
 
 <div class="card">
-    <table>
+    <table class="admin-card-table">
         <thead>
             <tr>
                 <th>Código</th>
@@ -21,17 +21,17 @@ $currencies = $currencies ?? [];
         <tbody>
             <?php if (empty($currencies)): ?>
             <tr>
-                <td colspan="5">No hay monedas registradas.</td>
+                <td class="admin-empty-row" colspan="5">No hay monedas registradas.</td>
             </tr>
             <?php endif; ?>
             <?php foreach ($currencies as $currency): ?>
             <tr>
-                <td><?= htmlspecialchars((string) ($currency['code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($currency['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($currency['symbol'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= (int) ($currency['is_active'] ?? 0) === 1 ? 'Sí' : 'No' ?></td>
-                <td>
-                    <a href="/admin/catalog/currencies/edit?code=<?= htmlspecialchars((string) ($currency['code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">Editar</a>
+                <td data-label="Codigo"><?= htmlspecialchars((string) ($currency['code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Nombre"><?= htmlspecialchars((string) ($currency['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Simbolo"><?= htmlspecialchars((string) ($currency['symbol'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Activa"><?= (int) ($currency['is_active'] ?? 0) === 1 ? 'Sí' : 'No' ?></td>
+                <td data-label="Acciones">
+                    <a class="admin-row-action" href="/admin/catalog/currencies/edit?code=<?= htmlspecialchars((string) ($currency['code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">Editar</a>
                 </td>
             </tr>
             <?php endforeach; ?>

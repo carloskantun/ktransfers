@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-05-11
+
+### Added
+
+- Edicion de canales de contacto desde `/admin/content/home`.
+- Persistencia de `contact_channels` en `site_content.home_page` para boton flotante y accesos rapidos del home.
+- Registro de pago pendiente en `booking_payments` al confirmar checkout publico manual.
+- Historial inicial en `booking_status_history` para reservas creadas desde checkout publico.
+- Integracion inicial de Mercado Pago Checkout Pro sin Composer.
+- Rutas `/checkout/mercado-pago/start`, `/checkout/mercado-pago/return` y `/webhooks/mercado-pago`.
+- Migracion `025_mercado_pago_payment_method.sql` para metodo `MERCADO_PAGO`.
+- Documento `docs/CURRENT_STATUS.md` con estado real del sistema.
+
+### Changed
+
+- `README.md`, `ARCHITECTURE.md`, `route-map.md` y `PLAN_TRABAJO.md` ahora reflejan mejor el estado actual: home nueva, Home Settings, superadmin, agencias, registro manual avanzado, pagos pendientes y migraciones hasta `024`.
+
+### Notes
+
+- Stripe y PayPal siguen sin logica de cobro real; solo se guardan claves de configuracion.
+- Mercado Pago requiere credenciales sandbox/produccion y que el dominio publico reciba el webhook.
+- El checkout manual conserva reservas como `PENDING` / `UNPAID` hasta que el equipo confirme manualmente el pago.
+
 ## 2026-03-20
 
 ### Added

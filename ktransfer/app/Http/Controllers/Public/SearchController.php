@@ -50,8 +50,8 @@ class SearchController {
             $error = 'No se pudo cargar información inicial.';
         }
 
-        return Response::view('public/search', [
-            'title' => 'Buscar traslado',
+        return Response::view('public/home', [
+            'title' => 'Express Transfer Cancun - Private Airport Transfers',
             'csrf_token' => Csrf::token(),
             'currencies' => $currencies,
             'zones' => $zones,
@@ -176,10 +176,13 @@ class SearchController {
             ]);
         }
 
+        $placeInfo = $this->loadPlaceById((int) $form['place_id']);
+
         $searchContext = [
             'trip_type' => $form['trip_type'],
             'direction' => $form['direction'],
             'place_id' => (int) $form['place_id'],
+            'place_name' => (string) ($placeInfo['name'] ?? ''),
             'arrival_datetime' => $form['arrival_datetime'],
             'departure_datetime' => $form['departure_datetime'],
             'adults' => (int) $form['adults'],

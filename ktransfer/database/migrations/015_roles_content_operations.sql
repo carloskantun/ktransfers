@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS site_content (
 INSERT INTO permissions (code, description) VALUES
 ('dashboard.view', 'Ver dashboard administrativo'),
 ('bookings.view', 'Ver listado de reservas'),
+('bookings.create', 'Crear reservas propias sin administrar precio ni operacion'),
 ('bookings.manage', 'Crear y editar reservas'),
 ('catalog.manage', 'Administrar catálogos'),
 ('pricing.manage', 'Administrar reglas de precios'),
@@ -23,6 +24,7 @@ ON DUPLICATE KEY UPDATE description = VALUES(description);
 INSERT INTO roles (code, name, created_at) VALUES
 ('admin', 'Administrator', NOW()),
 ('operator', 'Operator', NOW()),
+('agency', 'Agencia externa', NOW()),
 ('sales', 'Sales', NOW()),
 ('accounting', 'Accounting', NOW())
 ON DUPLICATE KEY UPDATE name = VALUES(name);
@@ -42,7 +44,13 @@ WHERE r.code = 'operator';
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
-INNER JOIN permissions p ON p.code IN ('dashboard.view', 'bookings.view', 'bookings.manage', 'content.manage')
+INNER JOIN permissions p ON p.code IN ('dashboard.view', 'bookings.view', 'bookings.create')
+WHERE r.code = 'agency';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+INNER JOIN permissions p ON p.code IN ('dashboard.view', 'bookings.view', 'bookings.create', 'bookings.manage', 'content.manage')
 WHERE r.code = 'sales';
 
 INSERT IGNORE INTO role_permissions (role_id, permission_id)

@@ -1,0 +1,85 @@
+:root {
+    --font-family-primary: ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-size-xs: 11px;
+    --font-size-sm: 13px;
+    --font-size-md: 13.01px;
+    --font-size-lg: 14.4px;
+    --font-size-xl: 15px;
+    --font-size-2xl: 16px;
+    --font-size-3xl: 18px;
+    --font-size-4xl: 20px;
+    --font-weight-base: 400;
+    --font-line-height-base: 24px;
+
+    --space-1: 4px;
+    --space-2: 10px;
+    --space-3: 12px;
+    --space-4: 13.01px;
+    --space-5: 16px;
+    --space-6: 20px;
+    --space-7: 24px;
+    --space-8: 28px;
+
+    --radius-xs: 2px;
+    --radius-sm-token: 50px;
+    --radius-md-token: 9999px;
+    --radius-lg-token: 33554400px;
+
+    --motion-duration-instant: 150ms;
+    --motion-duration-fast: 200ms;
+    --motion-duration-normal: 300ms;
+    --motion-duration-slow: 350ms;
+
+    --color-surface-base: #000000;
+    --color-text-secondary: #ffffff;
+    --color-text-tertiary: #356d8d;
+    --color-text-inverse: #616161;
+    --color-surface-muted-token: #c4c4c4;
+
+    /* Semantic aliases used by current components */
+    --bg: #f4f6f9;
+    --bg-soft: #e6edf4;
+    --ink: #111111;
+    --ink-soft: #343434;
+    --muted: var(--color-text-inverse);
+    --surface: #ffffff;
+    --surface-strong: #ffffff;
+    --surface-muted: #f1f3f5;
+    --line: #d2d6db;
+    --line-strong: #8c939b;
+    --accent: var(--color-text-tertiary);
+    --accent-soft: #d9e7ef;
+    --success: #1e6b48;
+    --error: #8f2d2d;
+    --focus-ring: var(--color-text-tertiary);
+    --shadow: rgba(0, 0, 0, 0.12) 0 4px 16px 0;
+    --shadow-soft: rgba(0, 0, 0, 0.08) 0 0 18px 0;
+    --radius-xl: 6px;
+    --radius-lg: 4px;
+    --radius-md: 4px;
+    --radius-sm: 2px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: var(--font-family-primary);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-base);
+    line-height: var(--font-line-height-base);
+    letter-spacing: 0.01em;
+    background: var(--bg);
+}
+
+a {
+    color: inherit;
+}

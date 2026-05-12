@@ -8,6 +8,7 @@ use App\Core\Csrf;
 use App\Core\DB;
 use App\Core\Request;
 use App\Core\Response;
+use App\Services\HomeContentService;
 use DateTimeImmutable;
 use Throwable;
 
@@ -16,6 +17,7 @@ class OperationsAgendaController {
     private const MODE_OPTIONS = ['INTERNAL', 'PROVIDER'];
     private const RANGE_PRESETS = ['TODAY', 'THIS_WEEK', 'LAST_WEEK', 'NEXT_7_DAYS', 'CUSTOM'];
     private const OPERATOR_BOOKING_STATUSES = ['COMPLETED', 'NO_SHOW', 'CANCELLED'];
+    private const DEFAULT_AIRPORT_LABEL = 'Aeropuerto de Cancun';
 
     public function index(Request $request): Response
     {
@@ -93,17 +95,32 @@ class OperationsAgendaController {
         $serviceStatus = $this->normalizeStatus((string) $request->post('service_status', '')) ?? 'PENDING';
         $mode = $this->normalizeMode((string) $request->post('mode', '')) ?? 'INTERNAL';
         $notes = trim((string) $request->post('work_order_notes', ''));
+        $agencyNameInput = trim((string) $request->post('agency_name', ''));
+        $terminal = trim((string) $request->post('terminal', ''));
+        $originName = trim((string) $request->post('origin_name', ''));
+        $destinationName = trim((string) $request->post('destination_name', ''));
         $workDate = $this->normalizeDate((string) $request->post('work_date', '')) ?? $range['start_date'];
 
         if ($bookingId === null) {
             return Response::redirect($redirectUrl);
         }
 
-        if ($mode !== 'PROVIDER') {
-            $providerId = null;
+        // Si la reserva tiene agencia vinculada por provider, preservar el nombre de la BD
+        $db = DB::connection();
+        $currentBookingStmt = $db->prepare('SELECT agency_name, agency_provider_id FROM bookings WHERE id = :id LIMIT 1');
+        $currentBookingStmt->execute(['id' => $bookingId]);
+        $currentBooking = $currentBookingStmt->fetch();
+        if ((int) ($currentBooking['agency_provider_id'] ?? 0) > 0) {
+            $agencyName = (string) ($currentBooking['agency_name'] ?? '');
+        } else {
+            $agencyName = $agencyNameInput;
         }
 
-        $db = DB::connection();
+        if ($mode !== 'PROVIDER') {
+            $providerId = null;
+        } else {
+            $operatorUserId = null;
+        }
 
         if ($isOperatorScope) {
             $bookingStatus = strtoupper(trim((string) $request->post('operator_booking_status', '')));
@@ -117,6 +134,23 @@ class OperationsAgendaController {
 
         try {
             $db->beginTransaction();
+
+            $updateBookingSheetStmt = $db->prepare(
+                'UPDATE bookings
+                 SET agency_name = :agency_name,
+                     terminal = :terminal,
+                     origin_name = :origin_name,
+                     destination_name = :destination_name,
+                     updated_at = NOW()
+                 WHERE id = :booking_id'
+            );
+            $updateBookingSheetStmt->execute([
+                'agency_name' => $agencyName !== '' ? $agencyName : null,
+                'terminal' => $terminal !== '' ? $terminal : null,
+                'origin_name' => $originName !== '' ? $originName : null,
+                'destination_name' => $destinationName !== '' ? $destinationName : null,
+                'booking_id' => $bookingId,
+            ]);
 
             $assignmentStmt = $db->prepare('SELECT id, assigned_at, done_at FROM assignments WHERE booking_id = :booking_id LIMIT 1');
             $assignmentStmt->execute(['booking_id' => $bookingId]);
@@ -133,7 +167,7 @@ class OperationsAgendaController {
                          operator_user_id = :operator_user_id,
                          service_status = :service_status,
                          assigned_at = CASE
-                             WHEN (:operator_user_id IS NOT NULL OR :provider_id IS NOT NULL) AND assigned_at IS NULL THEN NOW()
+                             WHEN (:operator_user_id_assigned IS NOT NULL OR :provider_id_assigned IS NOT NULL OR :vehicle_id_assigned IS NOT NULL) AND assigned_at IS NULL THEN NOW()
                              ELSE assigned_at
                          END,
                          done_at = :done_at
@@ -144,6 +178,9 @@ class OperationsAgendaController {
                     'provider_id' => $providerId,
                     'vehicle_id' => $vehicleId,
                     'operator_user_id' => $operatorUserId,
+                    'operator_user_id_assigned' => $operatorUserId,
+                    'provider_id_assigned' => $providerId,
+                    'vehicle_id_assigned' => $vehicleId,
                     'service_status' => $serviceStatus,
                     'done_at' => $doneAt,
                     'booking_id' => $bookingId,
@@ -203,6 +240,34 @@ class OperationsAgendaController {
         return Response::redirect($redirectUrl);
     }
 
+    public function print(Request $request): Response
+    {
+        $data = $this->loadAgendaDataFromRequest($request);
+
+        return Response::view('admin/operations/print', [
+            'title' => 'Orden de servicio',
+            'agenda_items' => $data['agenda_items'],
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'],
+            'selected_status' => $data['selected_status'],
+            'selected_operator_id' => $data['selected_operator_id'],
+            'brand_logo' => $this->resolveBrandLogoPath(),
+            'export_query' => $this->buildAgendaQuery($data),
+        ], null);
+    }
+
+    public function export(Request $request): Response
+    {
+        $data = $this->loadAgendaDataFromRequest($request);
+        $csv = $this->buildAgendaCsv($data['agenda_items']);
+        $filename = 'orden-servicio-' . $data['start_date'] . '-a-' . $data['end_date'] . '.csv';
+
+        return new Response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
     private function loadOperators(\PDO $db): array
     {
         $stmt = $db->query(
@@ -212,14 +277,114 @@ class OperationsAgendaController {
                 u.email,
                 COALESCE(GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ", "), "") AS role_names
              FROM users u
-             LEFT JOIN user_roles ur ON ur.user_id = u.id
-             LEFT JOIN roles r ON r.id = ur.role_id
+             INNER JOIN user_roles ur ON ur.user_id = u.id
+             INNER JOIN roles r ON r.id = ur.role_id
              WHERE u.is_active = 1
+               AND r.code IN (\'admin\', \'operator\')
              GROUP BY u.id, u.name, u.email
              ORDER BY u.name ASC'
         );
 
         return $stmt->fetchAll();
+    }
+
+    private function loadAgendaDataFromRequest(Request $request): array
+    {
+        $currentUserId = Auth::id();
+        $isOperatorScope = $this->isOperatorScope();
+        $range = $this->resolveDateRange(
+            (string) $request->query('preset', ''),
+            (string) $request->query('start_date', ''),
+            (string) $request->query('end_date', ''),
+            (string) $request->query('date', '')
+        );
+        $selectedOperatorId = $isOperatorScope
+            ? $currentUserId
+            : $this->normalizePositiveInt((string) $request->query('operator_user_id', ''));
+        $selectedStatus = $this->normalizeStatus((string) $request->query('service_status', ''));
+
+        $db = DB::connection();
+
+        return [
+            'range_preset' => $range['preset'],
+            'start_date' => $range['start_date'],
+            'end_date' => $range['end_date'],
+            'selected_operator_id' => $selectedOperatorId,
+            'selected_status' => $selectedStatus,
+            'agenda_items' => $this->loadAgendaItems($db, $range['start_date'], $range['end_date'], $selectedOperatorId, $selectedStatus),
+        ];
+    }
+
+    private function buildAgendaQuery(array $data): string
+    {
+        return http_build_query([
+            'preset' => (string) ($data['range_preset'] ?? 'CUSTOM'),
+            'start_date' => (string) ($data['start_date'] ?? ''),
+            'end_date' => (string) ($data['end_date'] ?? ''),
+            'operator_user_id' => $data['selected_operator_id'] ?? null,
+            'service_status' => $data['selected_status'] ?? null,
+        ]);
+    }
+
+    private function buildAgendaCsv(array $agendaItems): string
+    {
+        $handle = fopen('php://temp', 'r+');
+        if ($handle === false) {
+            return '';
+        }
+
+        fputcsv($handle, [
+            'Fecha',
+            'Hora',
+            'Unidad',
+            'Operador',
+            'Agencia',
+            'Proveedor',
+            'Tipo de servicio',
+            'No. Servicio',
+            'Terminal',
+            'Vuelo',
+            'Cliente',
+            'Telefono',
+            'Origen',
+            'Destino',
+            'Pax',
+            'Balance',
+            'Moneda',
+            'Estado',
+            'Nota',
+        ]);
+
+        foreach ($agendaItems as $item) {
+            $serviceDatetime = (string) ($item['service_datetime'] ?? 'now');
+            fputcsv($handle, [
+                date('d/m/Y', strtotime($serviceDatetime)),
+                date('H:i', strtotime($serviceDatetime)),
+                (string) ($item['vehicle_name'] ?? ''),
+                (string) ($item['operator_name'] ?? ''),
+                (string) ($item['agency_name'] ?? ''),
+                (string) ($item['provider_name'] ?? ''),
+                $this->resolveAgendaOperationLabel($item),
+                (string) ($item['booking_code'] ?? ''),
+                (string) ($item['terminal'] ?? ''),
+                trim((string) ($item['airline'] ?? '') . ' ' . (string) ($item['flight_number'] ?? '')),
+                trim((string) ($item['customer_name'] ?? '') . ' ' . (string) ($item['customer_last_name'] ?? '')),
+                (string) ($item['customer_phone'] ?? ''),
+                $this->resolveAgendaOrigin($item),
+                $this->resolveAgendaDestination($item),
+                (string) ($item['total_pax'] ?? '0'),
+                number_format((float) ($item['balance_due'] ?? 0), 2, '.', ''),
+                (string) ($item['currency_code'] ?? ''),
+                (string) ($item['service_status'] ?? 'PENDING'),
+                (string) ($item['work_order_notes'] ?? ''),
+            ]);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return "\xEF\xBB\xBF" . (is_string($csv) ? $csv : '');
     }
 
     private function loadProviders(\PDO $db): array
@@ -264,18 +429,32 @@ class OperationsAgendaController {
                 b.customer_email,
                 b.customer_phone,
                 b.trip_type,
+                b.operation_type,
                 b.direction,
                 b.status AS booking_status,
                 b.payment_status,
+                b.price_total,
+                b.currency_code,
                 b.airline,
                 b.flight_number,
+                b.terminal,
                 b.pickup_notes,
+                b.agency_name,
+                b.agency_provider_id,
+                b.origin_name,
+                b.destination_name,
                 z.name_es AS zone_name,
                 st.name_es AS service_name,
                 p.name AS place_name,
                 bp.total_pax,
                 {$timeExpression} AS service_datetime,
                 {$legExpression} AS service_leg,
+                COALESCE(payments.paid_total, 0) AS paid_total,
+                CASE
+                    WHEN b.payment_status = 'PAID' THEN 0
+                    WHEN b.price_total - COALESCE(payments.paid_total, 0) > 0 THEN b.price_total - COALESCE(payments.paid_total, 0)
+                    ELSE 0
+                END AS balance_due,
                 a.mode,
                 a.provider_id,
                 a.vehicle_id,
@@ -296,6 +475,11 @@ class OperationsAgendaController {
             LEFT JOIN vehicles v ON v.id = a.vehicle_id
             LEFT JOIN providers pr ON pr.id = a.provider_id
             LEFT JOIN work_orders wo ON wo.booking_id = b.id
+            LEFT JOIN (
+                SELECT booking_id, SUM(CASE WHEN status = 'PAID' THEN amount ELSE 0 END) AS paid_total
+                FROM booking_payments
+                GROUP BY booking_id
+            ) payments ON payments.booking_id = b.id
             WHERE (
                 wo.work_date BETWEEN :start_date_work_filter AND :end_date_work_filter
                 OR (wo.work_date IS NULL AND b.arrival_datetime IS NOT NULL AND DATE(b.arrival_datetime) BETWEEN :start_date_arrival_filter AND :end_date_arrival_filter)
@@ -599,5 +783,73 @@ class OperationsAgendaController {
     private function isOperatorScope(): bool
     {
         return ACL::currentUserHasRole('operator') && !ACL::currentUserHasRole('admin');
+    }
+
+    private function resolveAgendaOrigin(array $item): string
+    {
+        $customOrigin = trim((string) ($item['origin_name'] ?? ''));
+        if ($customOrigin !== '') {
+            return $customOrigin;
+        }
+
+        if ((string) ($item['service_leg'] ?? 'ARRIVAL') === 'DEPARTURE') {
+            $placeName = trim((string) ($item['place_name'] ?? ''));
+            return $placeName !== '' ? $placeName : self::DEFAULT_AIRPORT_LABEL;
+        }
+
+        return self::DEFAULT_AIRPORT_LABEL;
+    }
+
+    private function resolveAgendaOperationLabel(array $item): string
+    {
+        if ((string) ($item['operation_type'] ?? 'AIRPORT') === 'INTERHOTEL') {
+            return 'INTER HOTEL';
+        }
+
+        return ((string) ($item['service_leg'] ?? 'ARRIVAL') === 'DEPARTURE') ? 'SALIDA' : 'LLEGADA';
+    }
+
+    private function resolveAgendaDestination(array $item): string
+    {
+        $customDestination = trim((string) ($item['destination_name'] ?? ''));
+        if ($customDestination !== '') {
+            return $customDestination;
+        }
+
+        if ((string) ($item['service_leg'] ?? 'ARRIVAL') === 'DEPARTURE') {
+            return self::DEFAULT_AIRPORT_LABEL;
+        }
+
+        $placeName = trim((string) ($item['place_name'] ?? ''));
+        return $placeName !== '' ? $placeName : self::DEFAULT_AIRPORT_LABEL;
+    }
+
+    private function resolveBrandLogoPath(): ?string
+    {
+        $homeContent = (new HomeContentService())->getHomePageContent();
+        $customLogo = trim((string) (($homeContent['brand_logo_light'] ?? '') !== '' ? $homeContent['brand_logo_light'] : ($homeContent['brand_logo'] ?? '')));
+        if ($customLogo === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $customLogo) === 1) {
+            return $customLogo;
+        }
+
+        $projectRoot = dirname(__DIR__, 5);
+        $publicRoot = $projectRoot . '/public_html';
+        $candidate = str_starts_with($customLogo, '/') ? $customLogo : '/' . ltrim($customLogo, '/');
+        $relativePath = ltrim($candidate, '/');
+
+        if ($relativePath === '' || str_contains($relativePath, '..') || !is_file($publicRoot . '/' . $relativePath)) {
+            return null;
+        }
+
+        return $candidate;
+    }
+
+    public static function defaultAirportLabel(): string
+    {
+        return self::DEFAULT_AIRPORT_LABEL;
     }
 }

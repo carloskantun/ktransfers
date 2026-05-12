@@ -10,13 +10,7 @@ $directionLabels = [
     'AIRPORT_TO_DESTINATION' => 'Aeropuerto a hotel',
     'DESTINATION_TO_AIRPORT' => 'Hotel a aeropuerto',
 ];
-$statusLabels = [
-    'PENDING' => 'Pendiente',
-    'CONFIRMED' => 'Confirmada',
-    'CANCELLED' => 'Cancelada',
-    'NO_SHOW' => 'No Show',
-    'COMPLETED' => 'Completada',
-];
+$statusLabels = \App\Core\StatusCatalog::bookingMap(true);
 ?>
 <div class="flow-shell flow-stack">
     <section class="flow-hero">
@@ -148,7 +142,8 @@ $statusLabels = [
 
     <section class="flow-card flow-stack">
         <div class="action-row">
-            <button type="button" onclick="window.print();">Imprimir reserva</button>
+            <a class="action-link" href="/checkout/voucher" target="_blank" rel="noopener">Ver voucher / ticket</a>
+            <button type="button" onclick="window.print();">Imprimir resumen</button>
             <a class="action-link" href="/">Hacer nueva busqueda</a>
         </div>
     </section>

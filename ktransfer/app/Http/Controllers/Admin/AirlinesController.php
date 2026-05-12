@@ -12,17 +12,102 @@ class AirlinesController {
     public function index(Request $request): Response
     {
         $db = DB::connection();
-        $stmt = $db->query('
+        $perPage = 100;
+        $page = max(1, (int) $request->query('page', 1));
+        $search = trim((string) $request->query('q', ''));
+        $active = trim((string) $request->query('active', ''));
+        $where = [];
+        $params = [];
+        if ($search !== '') {
+            $where[] = '(code LIKE :search OR name LIKE :search)';
+            $params['search'] = '%' . $search . '%';
+        }
+        if ($active === '1' || $active === '0') {
+            $where[] = 'is_active = :active';
+            $params['active'] = (int) $active;
+        }
+        $whereSql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM airlines {$whereSql}");
+        foreach ($params as $key => $value) {
+            $countStmt->bindValue(':' . $key, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+        }
+        $countStmt->execute();
+        $total = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        $stmt = $db->prepare("
             SELECT id, code, name, is_active, created_at
             FROM airlines
+            {$whereSql}
             ORDER BY name ASC
-        ');
+            LIMIT :limit OFFSET :offset
+        ");
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limit', $perPage, \PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
+        $stmt->execute();
         $airlines = $stmt->fetchAll();
 
         return Response::view('admin/catalog/airlines/index', [
             'title' => 'Airlines',
             'airlines' => $airlines,
+            'filters' => ['q' => $search, 'active' => $active],
+            'pagination' => ['page' => $page, 'total_pages' => $totalPages, 'total' => $total],
         ], 'admin');
+    }
+
+    public function export(Request $request): Response
+    {
+        $db = DB::connection();
+        $search = trim((string) $request->query('q', ''));
+        $active = trim((string) $request->query('active', ''));
+        $where = [];
+        $params = [];
+        if ($search !== '') {
+            $where[] = '(code LIKE :search OR name LIKE :search)';
+            $params['search'] = '%' . $search . '%';
+        }
+        if ($active === '1' || $active === '0') {
+            $where[] = 'is_active = :active';
+            $params['active'] = (int) $active;
+        }
+        $whereSql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+        $stmt = $db->prepare("SELECT id, code, name, is_active, created_at FROM airlines {$whereSql} ORDER BY name ASC");
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+        }
+        $stmt->execute();
+
+        $handle = fopen('php://temp', 'r+');
+        if ($handle === false) {
+            $csv = '';
+        } else {
+            fputcsv($handle, ['ID', 'Codigo', 'Nombre', 'Activa', 'Creada']);
+            foreach ($stmt->fetchAll() as $airline) {
+                fputcsv($handle, [
+                    (string) ($airline['id'] ?? ''),
+                    (string) ($airline['code'] ?? ''),
+                    (string) ($airline['name'] ?? ''),
+                    (int) ($airline['is_active'] ?? 0) === 1 ? 'Si' : 'No',
+                    (string) ($airline['created_at'] ?? ''),
+                ]);
+            }
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+        }
+
+        return new Response("\xEF\xBB\xBF" . (is_string($csv) ? $csv : ''), 200, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="aerolineas-' . date('Ymd-His') . '.csv"',
+        ]);
     }
 
     public function create(Request $request): Response

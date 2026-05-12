@@ -1,0 +1,2 @@
+ALTER TABLE bookings
+  ADD COLUMN operation_type ENUM('AIRPORT','INTERHOTEL') NOT NULL DEFAULT 'AIRPORT' AFTER trip_type;

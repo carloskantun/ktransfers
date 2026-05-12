@@ -1,26 +1,35 @@
 <?php
 declare(strict_types=1);
+
 namespace App\Http\Controllers\Admin;
 
 use App\Core\Auth;
 use App\Core\Csrf;
 use App\Core\Request;
 use App\Core\Response;
+use App\Services\BrandingService;
 use App\Services\HomeContentService;
 
-class HomeContentController {
+class HomeContentController
+{
+    private const LOGO_UPLOAD_DIR = '/uploads/home';
+    private const CONTACT_CHANNEL_TYPES = ['whatsapp', 'call', 'sms', 'telegram', 'email'];
+    private const HERO_IMAGE_SLOTS = 6;
+
     public function edit(Request $request): Response
     {
         $service = new HomeContentService();
         $saved = $request->query('saved', '') === '1';
+        $currentContent = $service->getHomePageContent();
 
         if ($request->method() === 'GET') {
             return Response::view('admin/content/home', [
-                'title' => 'Home Content',
+                'title' => 'Home Settings',
                 'csrf_token' => Csrf::token(),
                 'saved' => $saved,
                 'errors' => [],
-                'form' => $this->contentToForm($service->getHomePageContent()),
+                'form' => $this->contentToForm($currentContent),
+                'suggested_prefix' => (new BrandingService())->suggestPrefixFromHost((string) ($_SERVER['HTTP_HOST'] ?? '')),
             ], 'admin');
         }
 
@@ -29,19 +38,32 @@ class HomeContentController {
         }
 
         $form = $this->formFromRequest($request);
+        $heroImageUploadErrors = $this->applyHeroImageUploads($form);
+        $uploadError = $this->applyLogoUpload($form, 'brand_logo', 'brand_logo_file', 'header-logo');
+        $lightLogoUploadError = $this->applyLogoUpload($form, 'brand_logo_light', 'brand_logo_light_file', 'light-logo');
+
         $errors = $this->validateForm($form);
+        $errors = array_merge($errors, $heroImageUploadErrors);
+        if ($uploadError !== null) {
+            $errors['brand_logo_upload'] = $uploadError;
+        }
+        if ($lightLogoUploadError !== null) {
+            $errors['brand_logo_light_upload'] = $lightLogoUploadError;
+        }
 
         if (!empty($errors)) {
             return Response::view('admin/content/home', [
-                'title' => 'Home Content',
+                'title' => 'Home Settings',
                 'csrf_token' => Csrf::token(),
                 'saved' => false,
                 'errors' => $errors,
                 'form' => $form,
+                'suggested_prefix' => (new BrandingService())->suggestPrefixFromHost((string) ($_SERVER['HTTP_HOST'] ?? '')),
             ], 'admin');
         }
 
-        $service->saveHomePageContent($this->formToContent($form), Auth::id());
+        $updatedContent = array_replace_recursive($currentContent, $this->formToContent($form));
+        $service->saveHomePageContent($updatedContent, Auth::id());
 
         return Response::redirect('/admin/content/home?saved=1');
     }
@@ -49,45 +71,45 @@ class HomeContentController {
     private function formFromRequest(Request $request): array
     {
         return [
-            'show_social_links' => $request->post('show_social_links') !== null ? '1' : '0',
-            'show_hero_badges' => $request->post('show_hero_badges') !== null ? '1' : '0',
-            'show_booking_panel' => $request->post('show_booking_panel') !== null ? '1' : '0',
-            'show_highlights' => $request->post('show_highlights') !== null ? '1' : '0',
-            'show_routes' => $request->post('show_routes') !== null ? '1' : '0',
-            'show_story' => $request->post('show_story') !== null ? '1' : '0',
-            'show_story_points' => $request->post('show_story_points') !== null ? '1' : '0',
-            'show_support' => $request->post('show_support') !== null ? '1' : '0',
-            'show_closing_cta' => $request->post('show_closing_cta') !== null ? '1' : '0',
-            'show_floating_contact' => $request->post('show_floating_contact') !== null ? '1' : '0',
-            'eyebrow' => trim((string) $request->post('eyebrow', '')),
-            'hero_mode' => trim((string) $request->post('hero_mode', 'editorial')),
-            'hero_images_text' => trim((string) $request->post('hero_images_text', '')),
-            'hero_title' => trim((string) $request->post('hero_title', '')),
-            'hero_subtitle' => trim((string) $request->post('hero_subtitle', '')),
-            'hero_primary_cta_label' => trim((string) $request->post('hero_primary_cta_label', '')),
-            'hero_primary_cta_href' => trim((string) $request->post('hero_primary_cta_href', '#booking-form')),
-            'hero_secondary_cta_label' => trim((string) $request->post('hero_secondary_cta_label', '')),
-            'hero_secondary_cta_href' => trim((string) $request->post('hero_secondary_cta_href', '#contact-channels')),
-            'search_label' => trim((string) $request->post('search_label', '')),
-            'search_panel_layout' => trim((string) $request->post('search_panel_layout', 'center-horizontal')),
-            'search_help' => trim((string) $request->post('search_help', '')),
-            'search_button_label' => trim((string) $request->post('search_button_label', '')),
-            'badges_text' => trim((string) $request->post('badges_text', '')),
-            'hero_slides_text' => trim((string) $request->post('hero_slides_text', '')),
-            'highlights_text' => trim((string) $request->post('highlights_text', '')),
-            'collections_text' => trim((string) $request->post('collections_text', '')),
-            'story_title' => trim((string) $request->post('story_title', '')),
-            'story_body' => trim((string) $request->post('story_body', '')),
-            'story_points_text' => trim((string) $request->post('story_points_text', '')),
-            'contact_channels_text' => trim((string) $request->post('contact_channels_text', '')),
-            'social_links_text' => trim((string) $request->post('social_links_text', '')),
-            'testimonial_quote' => trim((string) $request->post('testimonial_quote', '')),
-            'testimonial_author' => trim((string) $request->post('testimonial_author', '')),
-            'testimonial_role' => trim((string) $request->post('testimonial_role', '')),
-            'cta_title' => trim((string) $request->post('cta_title', '')),
-            'cta_body' => trim((string) $request->post('cta_body', '')),
-            'cta_button_label' => trim((string) $request->post('cta_button_label', '')),
-            'cta_button_href' => trim((string) $request->post('cta_button_href', '#booking-form')),
+            'brand_logo' => trim((string) $request->post('brand_logo', '')),
+            'brand_logo_light' => trim((string) $request->post('brand_logo_light', '')),
+            'home_theme' => trim((string) $request->post('home_theme', 'day')),
+            'booking_code_prefix' => strtoupper(trim((string) $request->post('booking_code_prefix', ''))),
+
+            'voucher_primary' => strtoupper(trim((string) $request->post('voucher_primary', '#17679A'))),
+            'voucher_secondary' => strtoupper(trim((string) $request->post('voucher_secondary', '#0D4F79'))),
+            'voucher_line' => strtoupper(trim((string) $request->post('voucher_line', '#1F2937'))),
+
+            'landing_day_bg' => strtoupper(trim((string) $request->post('landing_day_bg', '#FFFDF8'))),
+            'landing_day_text' => strtoupper(trim((string) $request->post('landing_day_text', '#101820'))),
+            'landing_day_accent' => strtoupper(trim((string) $request->post('landing_day_accent', '#0F3F46'))),
+            'landing_day_accent_2' => strtoupper(trim((string) $request->post('landing_day_accent_2', '#155D66'))),
+            'landing_day_gold' => strtoupper(trim((string) $request->post('landing_day_gold', '#C9A46A'))),
+            'landing_day_header_bg' => strtoupper(trim((string) $request->post('landing_day_header_bg', '#000000'))),
+            'landing_day_footer_bg' => strtoupper(trim((string) $request->post('landing_day_footer_bg', '#000000'))),
+
+            'landing_night_bg' => strtoupper(trim((string) $request->post('landing_night_bg', '#071114'))),
+            'landing_night_text' => strtoupper(trim((string) $request->post('landing_night_text', '#F7FBFC'))),
+            'landing_night_accent' => strtoupper(trim((string) $request->post('landing_night_accent', '#4FB3C3'))),
+            'landing_night_accent_2' => strtoupper(trim((string) $request->post('landing_night_accent_2', '#7AD4DF'))),
+            'landing_night_gold' => strtoupper(trim((string) $request->post('landing_night_gold', '#C9A46A'))),
+            'landing_night_header_bg' => strtoupper(trim((string) $request->post('landing_night_header_bg', '#000000'))),
+            'landing_night_footer_bg' => strtoupper(trim((string) $request->post('landing_night_footer_bg', '#071114'))),
+
+            'payment_mercado_pago_enabled' => $request->post('payment_mercado_pago_enabled') !== null ? '1' : '0',
+            'payment_mercado_pago_public_key' => trim((string) $request->post('payment_mercado_pago_public_key', '')),
+            'payment_mercado_pago_access_token' => trim((string) $request->post('payment_mercado_pago_access_token', '')),
+
+            'payment_stripe_enabled' => $request->post('payment_stripe_enabled') !== null ? '1' : '0',
+            'payment_stripe_public_key' => trim((string) $request->post('payment_stripe_public_key', '')),
+            'payment_stripe_secret_key' => trim((string) $request->post('payment_stripe_secret_key', '')),
+
+            'payment_paypal_enabled' => $request->post('payment_paypal_enabled') !== null ? '1' : '0',
+            'payment_paypal_client_id' => trim((string) $request->post('payment_paypal_client_id', '')),
+            'payment_paypal_client_secret' => trim((string) $request->post('payment_paypal_client_secret', '')),
+
+            'hero_images' => $this->heroImagesFromRequest($request),
+            'contact_channels' => $this->contactChannelsFromRequest($request),
         ];
     }
 
@@ -95,18 +117,93 @@ class HomeContentController {
     {
         $errors = [];
 
-        foreach (['hero_title', 'hero_subtitle', 'search_label', 'search_button_label', 'cta_title'] as $field) {
-            if (($form[$field] ?? '') === '') {
-                $errors[$field] = 'Este campo es requerido.';
+        if (!in_array($form['home_theme'] ?? '', ['day', 'night'], true)) {
+            $errors['home_theme'] = 'Selecciona una version visual valida.';
+        }
+
+        $prefix = trim((string) ($form['booking_code_prefix'] ?? ''));
+        if ($prefix !== '' && preg_match('/^[A-Z]{3}$/', $prefix) !== 1) {
+            $errors['booking_code_prefix'] = 'El prefijo debe tener exactamente 3 letras (A-Z).';
+        }
+
+        foreach (['brand_logo', 'brand_logo_light'] as $logoField) {
+            $logo = trim((string) ($form[$logoField] ?? ''));
+            if ($logo !== '' && preg_match('#^(https?://|/)#i', $logo) !== 1) {
+                $errors[$logoField] = 'Usa una URL completa o una ruta publica que empiece con /.';
+            }
+            if ($logo !== '' && str_contains($logo, '..')) {
+                $errors[$logoField] = 'La ruta del logo no es valida.';
             }
         }
 
-        if (!in_array($form['hero_mode'] ?? '', ['editorial', 'slider', 'carousel'], true)) {
-            $errors['hero_mode'] = 'Selecciona un modo de hero válido.';
+        foreach (($form['hero_images'] ?? []) as $index => $heroImage) {
+            $heroImage = trim((string) $heroImage);
+            if ($heroImage === '') {
+                continue;
+            }
+
+            if (preg_match('#^(https?://|/)#i', $heroImage) !== 1) {
+                $errors['hero_image_' . $index] = 'Imagen de slider ' . ((int) $index + 1) . ': usa una URL completa o una ruta publica que empiece con /.';
+                continue;
+            }
+
+            if (str_contains($heroImage, '..')) {
+                $errors['hero_image_' . $index] = 'Imagen de slider ' . ((int) $index + 1) . ': la ruta no es valida.';
+            }
         }
 
-        if (!in_array($form['search_panel_layout'] ?? '', ['center-horizontal', 'left-vertical', 'right-vertical'], true)) {
-            $errors['search_panel_layout'] = 'Selecciona una posición de buscador válida.';
+        $colorFields = [
+            'voucher_primary',
+            'voucher_secondary',
+            'voucher_line',
+            'landing_day_bg',
+            'landing_day_text',
+            'landing_day_accent',
+            'landing_day_accent_2',
+            'landing_day_gold',
+            'landing_day_header_bg',
+            'landing_day_footer_bg',
+            'landing_night_bg',
+            'landing_night_text',
+            'landing_night_accent',
+            'landing_night_accent_2',
+            'landing_night_gold',
+            'landing_night_header_bg',
+            'landing_night_footer_bg',
+        ];
+
+        foreach ($colorFields as $field) {
+            if (preg_match('/^#[0-9A-F]{6}$/', (string) ($form[$field] ?? '')) !== 1) {
+                $errors[$field] = 'Color invalido. Usa formato HEX como #1A2B3C.';
+            }
+        }
+
+        foreach (($form['contact_channels'] ?? []) as $index => $channel) {
+            if (!is_array($channel)) {
+                continue;
+            }
+
+            $label = 'Canal de contacto ' . ((int) $index + 1);
+            $hasAnyValue = trim((string) ($channel['title'] ?? '')) !== ''
+                || trim((string) ($channel['value'] ?? '')) !== ''
+                || trim((string) ($channel['url'] ?? '')) !== '';
+
+            if (!$hasAnyValue) {
+                continue;
+            }
+
+            if (!in_array((string) ($channel['type'] ?? ''), self::CONTACT_CHANNEL_TYPES, true)) {
+                $errors['contact_channel_' . $index . '_type'] = $label . ': tipo invalido.';
+            }
+
+            if (trim((string) ($channel['title'] ?? '')) === '') {
+                $errors['contact_channel_' . $index . '_title'] = $label . ': titulo requerido.';
+            }
+
+            $url = trim((string) ($channel['url'] ?? ''));
+            if ($url !== '' && preg_match('#^(https?://|tel:|sms:|mailto:)#i', $url) !== 1) {
+                $errors['contact_channel_' . $index . '_url'] = $label . ': usa https://, tel:, sms: o mailto:.';
+            }
         }
 
         return $errors;
@@ -115,203 +212,355 @@ class HomeContentController {
     private function formToContent(array $form): array
     {
         return [
-            'sections' => [
-                'show_social_links' => $form['show_social_links'] === '1',
-                'show_hero_badges' => $form['show_hero_badges'] === '1',
-                'show_booking_panel' => $form['show_booking_panel'] === '1',
-                'show_highlights' => $form['show_highlights'] === '1',
-                'show_routes' => $form['show_routes'] === '1',
-                'show_story' => $form['show_story'] === '1',
-                'show_story_points' => $form['show_story_points'] === '1',
-                'show_support' => $form['show_support'] === '1',
-                'show_closing_cta' => $form['show_closing_cta'] === '1',
-                'show_floating_contact' => $form['show_floating_contact'] === '1',
+            'brand_logo' => (string) $form['brand_logo'],
+            'brand_logo_light' => (string) $form['brand_logo_light'],
+            'home_theme' => (string) $form['home_theme'],
+            'booking_code_prefix' => (string) $form['booking_code_prefix'],
+            'hero_images' => $this->normalizeHeroImages($form['hero_images'] ?? []),
+            'voucher_theme' => [
+                'primary' => (string) $form['voucher_primary'],
+                'secondary' => (string) $form['voucher_secondary'],
+                'line' => (string) $form['voucher_line'],
             ],
-            'eyebrow' => $form['eyebrow'],
-            'hero_mode' => $form['hero_mode'],
-            'hero_images' => $this->linesToList($form['hero_images_text']),
-            'hero_title' => $form['hero_title'],
-            'hero_subtitle' => $form['hero_subtitle'],
-            'hero_primary_cta_label' => $form['hero_primary_cta_label'],
-            'hero_primary_cta_href' => $form['hero_primary_cta_href'] !== '' ? $form['hero_primary_cta_href'] : '#booking-form',
-            'hero_secondary_cta_label' => $form['hero_secondary_cta_label'],
-            'hero_secondary_cta_href' => $form['hero_secondary_cta_href'] !== '' ? $form['hero_secondary_cta_href'] : '#contact-channels',
-            'search_label' => $form['search_label'],
-            'search_panel_layout' => $form['search_panel_layout'],
-            'search_help' => $form['search_help'],
-            'search_button_label' => $form['search_button_label'],
-            'badges' => $this->linesToList($form['badges_text']),
-            'hero_slides' => $this->linesToRecords($form['hero_slides_text'], ['title', 'text', 'label', 'href']),
-            'highlights' => $this->linesToPairs($form['highlights_text']),
-            'collections' => $this->linesToPairs($form['collections_text']),
-            'story_title' => $form['story_title'],
-            'story_body' => $form['story_body'],
-            'story_points' => $this->linesToList($form['story_points_text']),
-            'contact_channels' => $this->linesToRecords($form['contact_channels_text'], ['type', 'title', 'value', 'url']),
-            'social_links' => $this->linesToRecords($form['social_links_text'], ['label', 'url']),
-            'testimonial_quote' => $form['testimonial_quote'],
-            'testimonial_author' => $form['testimonial_author'],
-            'testimonial_role' => $form['testimonial_role'],
-            'cta_title' => $form['cta_title'],
-            'cta_body' => $form['cta_body'],
-            'cta_button_label' => $form['cta_button_label'],
-            'cta_button_href' => $form['cta_button_href'] !== '' ? $form['cta_button_href'] : '#booking-form',
+            'landing_theme' => [
+                'day' => [
+                    'bg' => (string) $form['landing_day_bg'],
+                    'text' => (string) $form['landing_day_text'],
+                    'accent' => (string) $form['landing_day_accent'],
+                    'accent_2' => (string) $form['landing_day_accent_2'],
+                    'gold' => (string) $form['landing_day_gold'],
+                    'header_bg' => (string) $form['landing_day_header_bg'],
+                    'footer_bg' => (string) $form['landing_day_footer_bg'],
+                ],
+                'night' => [
+                    'bg' => (string) $form['landing_night_bg'],
+                    'text' => (string) $form['landing_night_text'],
+                    'accent' => (string) $form['landing_night_accent'],
+                    'accent_2' => (string) $form['landing_night_accent_2'],
+                    'gold' => (string) $form['landing_night_gold'],
+                    'header_bg' => (string) $form['landing_night_header_bg'],
+                    'footer_bg' => (string) $form['landing_night_footer_bg'],
+                ],
+            ],
+            'contact_channels' => $this->normalizeContactChannels($form['contact_channels'] ?? []),
+            'payment_settings' => [
+                'mercado_pago' => [
+                    'enabled' => $form['payment_mercado_pago_enabled'] === '1',
+                    'public_key' => (string) $form['payment_mercado_pago_public_key'],
+                    'access_token' => (string) $form['payment_mercado_pago_access_token'],
+                ],
+                'stripe' => [
+                    'enabled' => $form['payment_stripe_enabled'] === '1',
+                    'public_key' => (string) $form['payment_stripe_public_key'],
+                    'secret_key' => (string) $form['payment_stripe_secret_key'],
+                ],
+                'paypal' => [
+                    'enabled' => $form['payment_paypal_enabled'] === '1',
+                    'client_id' => (string) $form['payment_paypal_client_id'],
+                    'client_secret' => (string) $form['payment_paypal_client_secret'],
+                ],
+            ],
         ];
     }
 
     private function contentToForm(array $content): array
     {
+        $defaults = HomeContentService::defaultContent();
+        $content = array_replace_recursive($defaults, $content);
+
         return [
-            'show_social_links' => !empty($content['sections']['show_social_links']) ? '1' : '0',
-            'show_hero_badges' => !empty($content['sections']['show_hero_badges']) ? '1' : '0',
-            'show_booking_panel' => !empty($content['sections']['show_booking_panel']) ? '1' : '0',
-            'show_highlights' => !empty($content['sections']['show_highlights']) ? '1' : '0',
-            'show_routes' => !empty($content['sections']['show_routes']) ? '1' : '0',
-            'show_story' => !empty($content['sections']['show_story']) ? '1' : '0',
-            'show_story_points' => !empty($content['sections']['show_story_points']) ? '1' : '0',
-            'show_support' => !empty($content['sections']['show_support']) ? '1' : '0',
-            'show_closing_cta' => !empty($content['sections']['show_closing_cta']) ? '1' : '0',
-            'show_floating_contact' => !empty($content['sections']['show_floating_contact']) ? '1' : '0',
-            'eyebrow' => (string) ($content['eyebrow'] ?? ''),
-            'hero_mode' => (string) ($content['hero_mode'] ?? 'editorial'),
-            'hero_images_text' => implode("\n", array_map('strval', $content['hero_images'] ?? [])),
-            'hero_title' => (string) ($content['hero_title'] ?? ''),
-            'hero_subtitle' => (string) ($content['hero_subtitle'] ?? ''),
-            'hero_primary_cta_label' => (string) ($content['hero_primary_cta_label'] ?? ''),
-            'hero_primary_cta_href' => (string) ($content['hero_primary_cta_href'] ?? '#booking-form'),
-            'hero_secondary_cta_label' => (string) ($content['hero_secondary_cta_label'] ?? ''),
-            'hero_secondary_cta_href' => (string) ($content['hero_secondary_cta_href'] ?? '#contact-channels'),
-            'search_label' => (string) ($content['search_label'] ?? ''),
-            'search_panel_layout' => (string) ($content['search_panel_layout'] ?? 'center-horizontal'),
-            'search_help' => (string) ($content['search_help'] ?? ''),
-            'search_button_label' => (string) ($content['search_button_label'] ?? ''),
-            'badges_text' => implode("\n", array_map('strval', $content['badges'] ?? [])),
-            'hero_slides_text' => $this->recordsToLines($content['hero_slides'] ?? [], ['title', 'text', 'label', 'href']),
-            'highlights_text' => $this->pairsToLines($content['highlights'] ?? []),
-            'collections_text' => $this->pairsToLines($content['collections'] ?? []),
-            'story_title' => (string) ($content['story_title'] ?? ''),
-            'story_body' => (string) ($content['story_body'] ?? ''),
-            'story_points_text' => implode("\n", array_map('strval', $content['story_points'] ?? [])),
-            'contact_channels_text' => $this->recordsToLines($content['contact_channels'] ?? [], ['type', 'title', 'value', 'url']),
-            'social_links_text' => $this->recordsToLines($content['social_links'] ?? [], ['label', 'url']),
-            'testimonial_quote' => (string) ($content['testimonial_quote'] ?? ''),
-            'testimonial_author' => (string) ($content['testimonial_author'] ?? ''),
-            'testimonial_role' => (string) ($content['testimonial_role'] ?? ''),
-            'cta_title' => (string) ($content['cta_title'] ?? ''),
-            'cta_body' => (string) ($content['cta_body'] ?? ''),
-            'cta_button_label' => (string) ($content['cta_button_label'] ?? ''),
-            'cta_button_href' => (string) ($content['cta_button_href'] ?? '#booking-form'),
+            'brand_logo' => (string) ($content['brand_logo'] ?? ''),
+            'brand_logo_light' => (string) ($content['brand_logo_light'] ?? ''),
+            'home_theme' => (string) ($content['home_theme'] ?? 'day'),
+            'booking_code_prefix' => (string) ($content['booking_code_prefix'] ?? 'KTR'),
+            'hero_images' => $this->heroImagesToForm($content['hero_images'] ?? []),
+
+            'voucher_primary' => (string) ($content['voucher_theme']['primary'] ?? '#17679A'),
+            'voucher_secondary' => (string) ($content['voucher_theme']['secondary'] ?? '#0D4F79'),
+            'voucher_line' => (string) ($content['voucher_theme']['line'] ?? '#1F2937'),
+
+            'landing_day_bg' => (string) ($content['landing_theme']['day']['bg'] ?? '#FFFDF8'),
+            'landing_day_text' => (string) ($content['landing_theme']['day']['text'] ?? '#101820'),
+            'landing_day_accent' => (string) ($content['landing_theme']['day']['accent'] ?? '#0F3F46'),
+            'landing_day_accent_2' => (string) ($content['landing_theme']['day']['accent_2'] ?? '#155D66'),
+            'landing_day_gold' => (string) ($content['landing_theme']['day']['gold'] ?? '#C9A46A'),
+            'landing_day_header_bg' => (string) ($content['landing_theme']['day']['header_bg'] ?? '#000000'),
+            'landing_day_footer_bg' => (string) ($content['landing_theme']['day']['footer_bg'] ?? '#000000'),
+
+            'landing_night_bg' => (string) ($content['landing_theme']['night']['bg'] ?? '#071114'),
+            'landing_night_text' => (string) ($content['landing_theme']['night']['text'] ?? '#F7FBFC'),
+            'landing_night_accent' => (string) ($content['landing_theme']['night']['accent'] ?? '#4FB3C3'),
+            'landing_night_accent_2' => (string) ($content['landing_theme']['night']['accent_2'] ?? '#7AD4DF'),
+            'landing_night_gold' => (string) ($content['landing_theme']['night']['gold'] ?? '#C9A46A'),
+            'landing_night_header_bg' => (string) ($content['landing_theme']['night']['header_bg'] ?? '#000000'),
+            'landing_night_footer_bg' => (string) ($content['landing_theme']['night']['footer_bg'] ?? '#071114'),
+
+            'payment_mercado_pago_enabled' => !empty($content['payment_settings']['mercado_pago']['enabled']) ? '1' : '0',
+            'payment_mercado_pago_public_key' => (string) ($content['payment_settings']['mercado_pago']['public_key'] ?? ''),
+            'payment_mercado_pago_access_token' => (string) ($content['payment_settings']['mercado_pago']['access_token'] ?? ''),
+
+            'payment_stripe_enabled' => !empty($content['payment_settings']['stripe']['enabled']) ? '1' : '0',
+            'payment_stripe_public_key' => (string) ($content['payment_settings']['stripe']['public_key'] ?? ''),
+            'payment_stripe_secret_key' => (string) ($content['payment_settings']['stripe']['secret_key'] ?? ''),
+
+            'payment_paypal_enabled' => !empty($content['payment_settings']['paypal']['enabled']) ? '1' : '0',
+            'payment_paypal_client_id' => (string) ($content['payment_settings']['paypal']['client_id'] ?? ''),
+            'payment_paypal_client_secret' => (string) ($content['payment_settings']['paypal']['client_secret'] ?? ''),
+
+            'contact_channels' => $this->contactChannelsToForm($content['contact_channels'] ?? []),
         ];
     }
 
-    private function linesToList(string $raw): array
+    private function contactChannelsFromRequest(Request $request): array
     {
-        $lines = preg_split('/\R+/', $raw) ?: [];
-        $items = [];
+        $types = $request->post('contact_channel_type', []);
+        $titles = $request->post('contact_channel_title', []);
+        $values = $request->post('contact_channel_value', []);
+        $urls = $request->post('contact_channel_url', []);
 
-        foreach ($lines as $line) {
-            $value = trim((string) $line);
-            if ($value !== '') {
-                $items[] = $value;
-            }
+        $types = is_array($types) ? $types : [];
+        $titles = is_array($titles) ? $titles : [];
+        $values = is_array($values) ? $values : [];
+        $urls = is_array($urls) ? $urls : [];
+
+        $channels = [];
+        for ($i = 0; $i < 4; $i++) {
+            $channels[] = [
+                'type' => strtolower(trim((string) ($types[$i] ?? 'whatsapp'))),
+                'title' => trim((string) ($titles[$i] ?? '')),
+                'value' => trim((string) ($values[$i] ?? '')),
+                'url' => trim((string) ($urls[$i] ?? '')),
+            ];
         }
 
-        return $items;
+        return $channels;
     }
 
-    private function linesToPairs(string $raw): array
+    private function heroImagesFromRequest(Request $request): array
     {
-        $lines = preg_split('/\R+/', $raw) ?: [];
-        $items = [];
-
-        foreach ($lines as $line) {
-            $line = trim((string) $line);
-            if ($line === '') {
-                continue;
-            }
-
-            [$title, $text] = array_pad(array_map('trim', explode('|', $line, 2)), 2, '');
-            if ($title === '') {
-                continue;
-            }
-
-            $items[] = ['title' => $title, 'text' => $text];
+        $images = $request->post('hero_images', []);
+        if (!is_array($images)) {
+            return [];
         }
 
-        return $items;
+        $values = [];
+        foreach (array_slice($images, 0, self::HERO_IMAGE_SLOTS) as $image) {
+            $values[] = trim((string) $image);
+        }
+
+        return $values;
     }
 
-    private function pairsToLines(array $items): string
+    private function applyHeroImageUploads(array &$form): array
     {
-        $lines = [];
+        $errors = [];
 
-        foreach ($items as $item) {
-            if (!is_array($item)) {
+        for ($i = 0; $i < self::HERO_IMAGE_SLOTS; $i++) {
+            $fileField = 'hero_image_file_' . $i;
+            $file = $_FILES[$fileField] ?? null;
+            if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
                 continue;
             }
 
-            $title = trim((string) ($item['title'] ?? ''));
-            $text = trim((string) ($item['text'] ?? ''));
-            if ($title === '') {
+            if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+                $errors['hero_image_' . $i] = 'Imagen de slider ' . ($i + 1) . ': no se pudo subir el archivo.';
                 continue;
             }
 
-            $lines[] = $title . ' | ' . $text;
+            $tmpName = (string) ($file['tmp_name'] ?? '');
+            if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+                $errors['hero_image_' . $i] = 'Imagen de slider ' . ($i + 1) . ': el archivo subido no es valido.';
+                continue;
+            }
+
+            $size = (int) ($file['size'] ?? 0);
+            if ($size <= 0 || $size > 5 * 1024 * 1024) {
+                $errors['hero_image_' . $i] = 'Imagen de slider ' . ($i + 1) . ': peso maximo permitido 5 MB.';
+                continue;
+            }
+
+            $mime = mime_content_type($tmpName) ?: '';
+            $extensions = [
+                'image/png' => 'png',
+                'image/jpeg' => 'jpg',
+                'image/webp' => 'webp',
+            ];
+
+            if (!isset($extensions[$mime])) {
+                $errors['hero_image_' . $i] = 'Imagen de slider ' . ($i + 1) . ': usa PNG, JPG o WEBP.';
+                continue;
+            }
+
+            $projectRoot = dirname(__DIR__, 5);
+            $publicRoot = $projectRoot . '/public_html';
+            $uploadDir = $publicRoot . self::LOGO_UPLOAD_DIR;
+
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+                $errors['hero_image_' . $i] = 'Imagen de slider ' . ($i + 1) . ': no se pudo crear la carpeta de uploads.';
+                continue;
+            }
+
+            $filename = 'hero-slide-' . ($i + 1) . '-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.' . $extensions[$mime];
+            $destination = $uploadDir . '/' . $filename;
+
+            if (!move_uploaded_file($tmpName, $destination)) {
+                $errors['hero_image_' . $i] = 'Imagen de slider ' . ($i + 1) . ': no se pudo guardar el archivo.';
+                continue;
+            }
+
+            $form['hero_images'][$i] = self::LOGO_UPLOAD_DIR . '/' . $filename;
         }
 
-        return implode("\n", $lines);
+        return $errors;
     }
 
-    private function linesToRecords(string $raw, array $keys): array
+    private function heroImagesToForm(mixed $images): array
     {
-        $lines = preg_split('/\R+/', $raw) ?: [];
-        $items = [];
+        $defaults = HomeContentService::defaultContent()['hero_images'] ?? [];
+        $source = is_array($images) && !empty($images) ? $images : $defaults;
+        $formImages = [];
 
-        foreach ($lines as $line) {
-            $line = trim((string) $line);
-            if ($line === '') {
-                continue;
-            }
-
-            $parts = array_map('trim', explode('|', $line));
-            $record = [];
-
-            foreach ($keys as $index => $key) {
-                $record[$key] = (string) ($parts[$index] ?? '');
-            }
-
-            if (($record[$keys[0]] ?? '') === '') {
-                continue;
-            }
-
-            $items[] = $record;
+        foreach (array_slice($source, 0, self::HERO_IMAGE_SLOTS) as $image) {
+            $formImages[] = trim((string) $image);
         }
 
-        return $items;
+        while (count($formImages) < self::HERO_IMAGE_SLOTS) {
+            $formImages[] = '';
+        }
+
+        return $formImages;
     }
 
-    private function recordsToLines(array $items, array $keys): string
+    private function normalizeHeroImages(mixed $images): array
     {
-        $lines = [];
-
-        foreach ($items as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-
-            $firstValue = trim((string) ($item[$keys[0]] ?? ''));
-            if ($firstValue === '') {
-                continue;
-            }
-
-            $parts = [];
-            foreach ($keys as $key) {
-                $parts[] = trim((string) ($item[$key] ?? ''));
-            }
-
-            $lines[] = implode(' | ', $parts);
+        if (!is_array($images)) {
+            return [];
         }
 
-        return implode("\n", $lines);
+        $normalized = [];
+        foreach (array_slice($images, 0, self::HERO_IMAGE_SLOTS) as $image) {
+            $value = trim((string) $image);
+            if ($value === '') {
+                continue;
+            }
+
+            if (!in_array($value, $normalized, true)) {
+                $normalized[] = $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function contactChannelsToForm(mixed $channels): array
+    {
+        $defaults = HomeContentService::defaultContent()['contact_channels'] ?? [];
+        $source = is_array($channels) && !empty($channels) ? $channels : $defaults;
+        $formChannels = [];
+
+        foreach (array_slice($source, 0, 4) as $channel) {
+            if (!is_array($channel)) {
+                continue;
+            }
+
+            $formChannels[] = [
+                'type' => strtolower(trim((string) ($channel['type'] ?? 'whatsapp'))),
+                'title' => trim((string) ($channel['title'] ?? '')),
+                'value' => trim((string) ($channel['value'] ?? '')),
+                'url' => trim((string) ($channel['url'] ?? '')),
+            ];
+        }
+
+        while (count($formChannels) < 4) {
+            $formChannels[] = ['type' => 'whatsapp', 'title' => '', 'value' => '', 'url' => ''];
+        }
+
+        return $formChannels;
+    }
+
+    private function normalizeContactChannels(mixed $channels): array
+    {
+        if (!is_array($channels)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach (array_slice($channels, 0, 4) as $channel) {
+            if (!is_array($channel)) {
+                continue;
+            }
+
+            $title = trim((string) ($channel['title'] ?? ''));
+            $value = trim((string) ($channel['value'] ?? ''));
+            $url = trim((string) ($channel['url'] ?? ''));
+            if ($title === '' && $value === '' && $url === '') {
+                continue;
+            }
+
+            $type = strtolower(trim((string) ($channel['type'] ?? 'whatsapp')));
+            if (!in_array($type, self::CONTACT_CHANNEL_TYPES, true)) {
+                $type = 'whatsapp';
+            }
+
+            $normalized[] = [
+                'type' => $type,
+                'title' => $title,
+                'value' => $value,
+                'url' => $url,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function applyLogoUpload(array &$form, string $formField, string $fileField, string $filenamePrefix): ?string
+    {
+        $file = $_FILES[$fileField] ?? null;
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            return 'No se pudo subir el logo. Intenta de nuevo.';
+        }
+
+        $tmpName = (string) ($file['tmp_name'] ?? '');
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+            return 'El archivo subido no es valido.';
+        }
+
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > 2 * 1024 * 1024) {
+            return 'El logo debe pesar maximo 2 MB.';
+        }
+
+        $mime = mime_content_type($tmpName) ?: '';
+        $extensions = [
+            'image/png' => 'png',
+            'image/jpeg' => 'jpg',
+            'image/webp' => 'webp',
+        ];
+
+        if (!isset($extensions[$mime])) {
+            return 'Sube un logo PNG, JPG o WEBP.';
+        }
+
+        $projectRoot = dirname(__DIR__, 5);
+        $publicRoot = $projectRoot . '/public_html';
+        $uploadDir = $publicRoot . self::LOGO_UPLOAD_DIR;
+
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+            return 'No se pudo crear la carpeta de uploads para el logo.';
+        }
+
+        $filename = $filenamePrefix . '-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.' . $extensions[$mime];
+        $destination = $uploadDir . '/' . $filename;
+
+        if (!move_uploaded_file($tmpName, $destination)) {
+            return 'No se pudo guardar el logo subido.';
+        }
+
+        $form[$formField] = self::LOGO_UPLOAD_DIR . '/' . $filename;
+        return null;
     }
 }

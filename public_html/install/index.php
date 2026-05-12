@@ -1,9 +1,22 @@
 <?php
 declare(strict_types=1);
 
-$installerPath = dirname(__DIR__, 2) . '/ktransfer/install/index.php';
+$projectRoot = dirname(__DIR__, 2);
+$appRootCandidates = [
+    $projectRoot . '/ktransfer',
+    $projectRoot,
+];
 
-if (!is_file($installerPath)) {
+$installerPath = null;
+foreach ($appRootCandidates as $candidate) {
+    $candidateInstaller = $candidate . '/install/index.php';
+    if (is_file($candidateInstaller)) {
+        $installerPath = $candidateInstaller;
+        break;
+    }
+}
+
+if ($installerPath === null) {
     http_response_code(500);
     echo 'Installer not found.';
     exit;

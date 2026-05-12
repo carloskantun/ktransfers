@@ -5,7 +5,7 @@
     <h1>Nuevo Vehículo</h1>
 </div>
 
-<div class="card">
+<div class="card admin-form-card">
     <form method="post" action="/admin/catalog/vehicles/create">
         <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
 

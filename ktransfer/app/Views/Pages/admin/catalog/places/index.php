@@ -21,11 +21,14 @@ if ($selectedZoneId > 0) {
 ?>
 <div class="page-header">
     <h1>Lugares (Hoteles/Airbnb)</h1>
-    <a href="/admin/catalog/places/create" class="btn btn-primary">Nuevo Lugar</a>
+    <div class="form-actions">
+        <a href="/admin/catalog/places/export?<?= htmlspecialchars(http_build_query($baseQuery), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-secondary">Descargar CSV</a>
+        <a href="/admin/catalog/places/create" class="btn btn-primary">Nuevo Lugar</a>
+    </div>
 </div>
 
 <div class="card">
-    <form method="get" action="/admin/catalog/places" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
+    <form method="get" action="/admin/catalog/places" class="admin-filter-bar">
         <div>
             <label for="q">Buscar hotel/lugar</label>
             <input id="q" name="q" type="text" value="<?= htmlspecialchars($search) ?>" placeholder="Nombre" />
@@ -43,10 +46,10 @@ if ($selectedZoneId > 0) {
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Filtrar</button>
-        <a href="/admin/catalog/places">Limpiar</a>
+        <a href="/admin/catalog/places" class="admin-row-action">Limpiar</a>
     </form>
 
-    <table>
+    <table class="admin-card-table">
         <thead>
             <tr>
                 <th>ID</th>
@@ -60,24 +63,24 @@ if ($selectedZoneId > 0) {
         <tbody>
             <?php if (empty($places)): ?>
             <tr>
-                <td colspan="6">No hay lugares registrados.</td>
+                <td class="admin-empty-row" colspan="6">No hay lugares registrados.</td>
             </tr>
             <?php endif; ?>
             <?php foreach ($places as $place): ?>
             <tr>
-                <td><?= htmlspecialchars((string)($place['id'] ?? '')) ?></td>
-                <td><?= htmlspecialchars($place['name'] ?? '') ?></td>
-                <td><?= htmlspecialchars($place['zone_name'] ?? '') ?></td>
-                <td><?= htmlspecialchars($place['type'] ?? '') ?></td>
-                <td><?= (int)($place['is_active'] ?? 0) === 1 ? 'Sí' : 'No' ?></td>
-                <td><a href="/admin/catalog/places/edit?id=<?= (int) ($place['id'] ?? 0) ?>">Editar</a></td>
+                <td data-label="ID"><?= htmlspecialchars((string)($place['id'] ?? '')) ?></td>
+                <td data-label="Nombre"><?= htmlspecialchars($place['name'] ?? '') ?></td>
+                <td data-label="Zona"><?= htmlspecialchars($place['zone_name'] ?? '') ?></td>
+                <td data-label="Tipo"><?= htmlspecialchars($place['type'] ?? '') ?></td>
+                <td data-label="Activa"><?= (int)($place['is_active'] ?? 0) === 1 ? 'Sí' : 'No' ?></td>
+                <td data-label="Acciones"><a class="admin-row-action" href="/admin/catalog/places/edit?id=<?= (int) ($place['id'] ?? 0) ?>">Editar</a></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
 
     <?php if ($totalPages > 1): ?>
-    <div style="display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-top:12px;">
+    <div class="admin-pagination">
         <?php if ($currentPage > 1): ?>
             <?php $prevQuery = http_build_query(array_merge($baseQuery, ['page' => $currentPage - 1])); ?>
             <a href="/admin/catalog/places?<?= htmlspecialchars($prevQuery) ?>">← Anterior</a>

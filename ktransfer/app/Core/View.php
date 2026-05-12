@@ -12,6 +12,16 @@ class View {
             return 'View not found: ' . $page;
         }
 
+        $publicLocale = I18n::current();
+        $publicT = static fn (string $key, string $fallback): string => I18n::translate($key, $publicLocale, $fallback);
+        $publicLocalizedUrl = static fn (string $locale): string => I18n::localizedUrl($locale);
+
+        $data = array_merge([
+            'public_locale' => $publicLocale,
+            'public_t' => $publicT,
+            'public_localized_url' => $publicLocalizedUrl,
+        ], $data);
+
         extract($data, EXTR_SKIP);
 
         ob_start();

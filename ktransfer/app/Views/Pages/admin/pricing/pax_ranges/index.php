@@ -8,7 +8,7 @@ $ranges = $ranges ?? [];
 </div>
 
 <div class="card">
-    <table>
+    <table class="admin-card-table">
         <thead>
             <tr>
                 <th>ID</th>
@@ -22,17 +22,17 @@ $ranges = $ranges ?? [];
         <tbody>
             <?php if (empty($ranges)): ?>
             <tr>
-                <td colspan="6">No hay rangos registrados.</td>
+                <td class="admin-empty-row" colspan="6">No hay rangos registrados.</td>
             </tr>
             <?php endif; ?>
             <?php foreach ($ranges as $range): ?>
             <tr>
-                <td><?= htmlspecialchars((string) ($range['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($range['label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($range['min_pax'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($range['max_pax'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($range['sort_order'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><a href="/admin/pricing/pax-ranges/edit?id=<?= (int) ($range['id'] ?? 0) ?>">Editar</a></td>
+                <td data-label="ID"><?= htmlspecialchars((string) ($range['id'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Etiqueta"><?= htmlspecialchars((string) ($range['label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Minimo"><?= htmlspecialchars((string) ($range['min_pax'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Maximo"><?= htmlspecialchars((string) ($range['max_pax'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Orden"><?= htmlspecialchars((string) ($range['sort_order'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td data-label="Acciones"><a class="admin-row-action" href="/admin/pricing/pax-ranges/edit?id=<?= (int) ($range['id'] ?? 0) ?>">Editar</a></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

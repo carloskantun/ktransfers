@@ -6,6 +6,9 @@ Convertir `ktransfers` en un instalador util para crear sitios de transporte pri
 ## Estado actual resumido
 - Ya existe un core funcional en PHP vanilla con instalador, migraciones, buscador, checkout, admin y modulos operativos.
 - La home publica ya apunta a un estilo premium/minimalista orientado a turismo de lujo.
+- Home Settings ya permite configurar logos, prefijo, colores, canales de contacto y claves de pasarelas.
+- El checkout publico registra pagos manuales pendientes y ya puede iniciar Mercado Pago Checkout Pro.
+- El registro manual ya incluye agencias, cobro capturado por agencia, operacion aeropuerto/interhotel, asignaciones y work orders.
 - Falta cerrar brechas criticas para estabilidad y alineacion con la vision "instalador multi-marca".
 
 ## Fase 1: Correcciones criticas (bloqueantes)
@@ -14,9 +17,10 @@ Convertir `ktransfers` en un instalador util para crear sitios de transporte pri
 - Validar login y permisos reales post-instalacion.
 
 2. Cerrar flujo de pago MVP de checkout.
-- Insertar registro en `booking_payments` al confirmar.
-- Actualizar `bookings.payment_status` segun metodo/estado.
-- Mantener consistencia con `Accounting` y `KPIs`.
+- Estado actual: al confirmar se crea `booking_payments` con estado `PENDING` y metodo manual seleccionado.
+- Estado actual: Mercado Pago actualiza `bookings.payment_status = PAID` y `bookings.status = CONFIRMED` cuando el pago llega como `approved`.
+- Pendiente: confirmacion admin para pagos manuales y controles operativos de reintento/cancelacion.
+- Mantener consistencia con `Accounting` y `KPIs`: hoy solo cuentan ingresos cuando `booking_payments.status = PAID`.
 
 3. Endurecer validaciones del checkout.
 - Validar server-side datos minimos de cliente antes de persistir.
@@ -26,6 +30,7 @@ Convertir `ktransfers` en un instalador util para crear sitios de transporte pri
 1. Sistema de identidad por sitio.
 - Configurar nombre comercial, logo, telefonos, links sociales, colores y tipografia.
 - Quitar hardcodes de marca en layout publico.
+- Estado actual: logos, prefijo, colores y canales de contacto ya son editables; nombre comercial/copy/secciones aun requieren expansion.
 
 2. Temas/plantillas iniciales.
 - Crear presets de interfaz:
