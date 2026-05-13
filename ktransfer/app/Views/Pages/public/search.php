@@ -13,6 +13,8 @@ $heroSlides = is_array($homeContent['hero_slides'] ?? null) ? $homeContent['hero
 $contactChannels = is_array($homeContent['contact_channels'] ?? null) ? $homeContent['contact_channels'] : [];
 $sections = is_array($homeContent['sections'] ?? null) ? $homeContent['sections'] : [];
 $publicLayoutMode = 'immersive';
+$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 
 $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $truncate = static function (string $text, int $limit): string {
@@ -124,7 +126,7 @@ $showcaseImages = [
             <div class="hero-content">
                 <div class="hero-layout">
                     <div class="hero-main">
-                        <div class="hero-kicker">Express Transfer Cancun</div>
+                        <div class="hero-kicker"><?= $escape($brandName) ?></div>
                         <h1><?= $escape($truncate((string) ($homeContent['hero_title'] ?? 'Private Cancun airport transfers'), 64)) ?></h1>
                         <p class="hero-summary"><?= $escape($truncate((string) ($homeContent['hero_subtitle'] ?? 'Book reliable private transportation with a simple premium experience.'), 120)) ?></p>
 

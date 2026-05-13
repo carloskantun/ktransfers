@@ -2,6 +2,8 @@
 declare(strict_types=1);
 namespace App\Core;
 
+use App\Services\HomeContentService;
+
 class View {
     public static function render(string $page, array $data = [], ?string $layout = 'public'): string
     {
@@ -21,6 +23,15 @@ class View {
             'public_t' => $publicT,
             'public_localized_url' => $publicLocalizedUrl,
         ], $data);
+
+        if ($layout === 'public' && !array_key_exists('home_content', $data)) {
+            static $cachedHomeContent = null;
+            if (!is_array($cachedHomeContent)) {
+                $cachedHomeContent = (new HomeContentService())->getHomePageContent();
+            }
+
+            $data['home_content'] = $cachedHomeContent;
+        }
 
         extract($data, EXTR_SKIP);
 

@@ -10,7 +10,10 @@ $backUrl = trim((string) ($back_url ?? '/admin/bookings'));
 $isRoundTrip = (string) ($booking['trip_type'] ?? '') === 'ROUND_TRIP';
 
 $homeContent = (new HomeContentService())->getHomePageContent();
+$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 $voucherTheme = is_array($homeContent['voucher_theme'] ?? null) ? $homeContent['voucher_theme'] : [];
+$voucherContact = is_array($homeContent['voucher_contact'] ?? null) ? $homeContent['voucher_contact'] : [];
 $normalizeHex = static function ($value, string $fallback): string {
     $value = strtoupper(trim((string) $value));
     if (preg_match('/^#[0-9A-F]{6}$/', $value) === 1) {
@@ -26,7 +29,41 @@ $voucherLine = $normalizeHex($voucherTheme['line'] ?? '', '#1F2937');
 if ($brandLogo === '' && is_file(dirname(__DIR__, 6) . '/public_html/assets/expresslogo-300x122.png.webp')) {
     $brandLogo = '/assets/expresslogo-300x122.png.webp';
 }
-$qrPath = is_file(dirname(__DIR__, 6) . '/public_html/assets/qr_spectial.png') ? '/assets/qr_spectial.png' : '';
+
+$resolvePublicMediaPath = static function (string $candidate): ?string {
+    $candidate = trim($candidate);
+    if ($candidate === '') {
+        return null;
+    }
+
+    if (preg_match('#^https?://#i', $candidate) === 1) {
+        return $candidate;
+    }
+
+    $projectRoot = dirname(__DIR__, 6);
+    $publicRoot = $projectRoot . '/public_html';
+    $path = str_starts_with($candidate, '/') ? $candidate : '/' . ltrim($candidate, '/');
+    $relativePath = ltrim($path, '/');
+
+    if ($relativePath === '' || str_contains($relativePath, '..')) {
+        return null;
+    }
+
+    return is_file($publicRoot . '/' . $relativePath) ? $path : null;
+};
+
+$qrPath = $resolvePublicMediaPath((string) ($voucherContact['qr_path'] ?? ''));
+if ($qrPath === null) {
+    $qrPath = is_file(dirname(__DIR__, 6) . '/public_html/assets/qr_spectial.png') ? '/assets/qr_spectial.png' : '';
+}
+
+$voucherPhonePrimary = trim((string) ($voucherContact['phone_primary'] ?? '+52 998 756 4000'));
+$voucherPhoneSecondary = trim((string) ($voucherContact['phone_secondary'] ?? '+52 998 222 3778'));
+$voucherEmail = trim((string) ($voucherContact['email'] ?? 'info@expresstransfercancun.com'));
+$voucherWebsite = trim((string) ($voucherContact['website'] ?? 'expresstransfercancun.com'));
+
+$footerPhones = array_values(array_filter([$voucherPhonePrimary, $voucherPhoneSecondary], static fn (string $value): bool => $value !== ''));
+$footerContacts = array_values(array_filter([$voucherEmail, $voucherWebsite], static fn (string $value): bool => $value !== ''));
 
 $h = static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $formatDate = static function ($value): string {
@@ -92,9 +129,10 @@ $returnTrip = [
 $paymentLabels = \App\Core\StatusCatalog::paymentMap(true);
 $paymentStatus = (string) ($booking['payment_status'] ?? 'UNPAID');
 $remarks = trim((string) ($booking['pickup_notes'] ?? ''));
-$additional = trim((string) ($booking['work_order_notes'] ?? ''));
+$operatorNotes = trim((string) ($booking['work_order_notes'] ?? ''));
 $bookingCode = (string) ($booking['booking_code'] ?? '');
-$documentLabel = $documentType === 'service_order' ? 'ORDEN DE SERVICIO/SERVICE ORDER' : 'ORDEN DE SERVICIO/SERVICE ORDER';
+$isServiceOrder = $documentType === 'service_order';
+$documentLabel = $isServiceOrder ? 'ORDEN DE SERVICIO/SERVICE ORDER' : 'VOUCHER';
 
 $renderTrip = static function (array $trip) use ($h): void {
     $rows = [
@@ -434,7 +472,7 @@ $renderTrip = static function (array $trip) use ($h): void {
                 <?php if ($brandLogo !== ''): ?>
                     <img class="brand-logo" src="<?= $h($brandLogo) ?>" alt="Logo">
                 <?php else: ?>
-                    <div class="brand-fallback">Express Transfer Cancun</div>
+                    <div class="brand-fallback"><?= $h($brandName) ?></div>
                 <?php endif; ?>
             </div>
             <div class="title-box">
@@ -476,10 +514,12 @@ $renderTrip = static function (array $trip) use ($h): void {
                     <td class="label">OBSERVACIONES / REMARKS</td>
                     <td class="tall"><?= $h($remarks !== '' ? $remarks : '-') ?></td>
                 </tr>
+                <?php if ($isServiceOrder): ?>
                 <tr>
-                    <td class="label">ADICIONALES / ADDITIONAL SERVICES</td>
-                    <td class="tall"><?= $h($additional !== '' ? $additional : '-') ?></td>
+                    <td class="label">COMENTARIO OPERATIVO / OPERATOR NOTES</td>
+                    <td class="tall"><?= $h($operatorNotes !== '' ? $operatorNotes : '-') ?></td>
                 </tr>
+                <?php endif; ?>
                 <tr>
                     <td class="label">ESTADO DE PAGO / PAYMENT STATUS</td>
                     <td><?= $h($paymentLabels[$paymentStatus] ?? $paymentStatus) ?></td>
@@ -498,8 +538,8 @@ $renderTrip = static function (array $trip) use ($h): void {
                 </div>
                 <div class="footer-copy">
                     <div class="thanks">GRACIAS POR SU PREFERENCIA / THANK YOU FOR YOUR PREFERENCE</div>
-                    <div>Reservation phone: +52 998 756 4000 &nbsp; | &nbsp; +52 998 222 3778</div>
-                    <div>info@expresstransfercancun.com &nbsp; | &nbsp; expresstransfercancun.com</div>
+                    <div>Reservation phone: <?= $h(!empty($footerPhones) ? implode(' | ', $footerPhones) : '-') ?></div>
+                    <div><?= $h(!empty($footerContacts) ? implode(' | ', $footerContacts) : '-') ?></div>
                 </div>
             </div>
         </footer>

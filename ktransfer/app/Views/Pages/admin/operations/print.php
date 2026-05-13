@@ -1,12 +1,17 @@
 <?php
 declare(strict_types=1);
 
+use App\Services\HomeContentService;
+
 $agendaItems = $agenda_items ?? [];
 $startDate = (string) ($start_date ?? '');
 $endDate = (string) ($end_date ?? '');
 $brandLogo = trim((string) ($brand_logo ?? ''));
 $exportQuery = (string) ($export_query ?? '');
 $defaultAirportLabel = \App\Http\Controllers\Admin\OperationsAgendaController::defaultAirportLabel();
+$homeContent = (new HomeContentService())->getHomePageContent();
+$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 
 $resolveOrigin = static function (array $item) use ($defaultAirportLabel): string {
     $customOrigin = trim((string) ($item['origin_name'] ?? ''));
@@ -193,7 +198,7 @@ $resolveOperationLabel = static function (array $item): string {
                 <?php if ($brandLogo !== ''): ?>
                     <img class="brand-logo" src="<?= htmlspecialchars($brandLogo, ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
                 <?php else: ?>
-                    <div class="brand-fallback">Express Transfer Cancun</div>
+                    <div class="brand-fallback"><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?></div>
                 <?php endif; ?>
             </div>
             <div class="range-box">

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$title = $title ?? 'Express Transfer Cancun';
+$title = $title ?? 'Private Airport Transfers';
 $content = $content ?? '';
 $pageStyles = $pageStyles ?? [];
 $pageScripts = $pageScripts ?? [];
@@ -31,10 +31,6 @@ if ($isHomeContent || $isHomeRequest) {
         '/assets/public-home.js',
     ])));
 }
-
-$documentTitle = $isHomeContent || $isHomeRequest
-    ? $publicT('title.home', (string) $title)
-    : (string) $title;
 
 $homeContent = is_array($home_content ?? null) ? $home_content : [];
 $projectRoot = dirname(__DIR__, 5);
@@ -121,6 +117,14 @@ $brandLogoNightUrl = is_string($brandLogoNightPath) && $brandLogoNightPath !== '
 $brandLogoDefaultUrl = is_string($brandLogoPath) && $brandLogoPath !== '' ? $assetVersion($brandLogoPath) : '';
 $brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
 $brandName = $brandName !== '' ? $brandName : 'Express Transfers';
+$withBrand = static fn (string $text): string => strtr($text, [
+    '{{brand}}' => $brandName,
+    '%brand%' => $brandName,
+]);
+$documentTitle = $isHomeContent || $isHomeRequest
+    ? $withBrand($publicT('title.home', '{{brand}} - Private Airport Transfers'))
+    : (string) $title;
+$metaDescription = $withBrand($publicT('meta.description', 'Private airport transfers in Cancun, Playa del Carmen & Riviera Maya with {{brand}}.'));
 ?>
 <!doctype html>
 <html lang="<?= htmlspecialchars($publicLocale, ENT_QUOTES, 'UTF-8') ?>">
@@ -128,7 +132,7 @@ $brandName = $brandName !== '' ? $brandName : 'Express Transfers';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($documentTitle, ENT_QUOTES, 'UTF-8') ?></title>
-    <meta name="description" content="<?= htmlspecialchars($publicT('meta.description', 'Private airport transfers in Cancun, Playa del Carmen & Riviera Maya. Luxury transportation with Express Transfer Cancun.'), ENT_QUOTES, 'UTF-8') ?>">
+    <meta name="description" content="<?= htmlspecialchars($metaDescription, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="keywords" content="<?= htmlspecialchars($publicT('meta.keywords', 'airport transfer cancun, private transfer, cancun transportation'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars($assetVersion('/assets/design-base.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars($assetVersion('/assets/app.css'), ENT_QUOTES, 'UTF-8') ?>">

@@ -1,11 +1,16 @@
 <?php
 declare(strict_types=1);
 
+use App\Services\HomeContentService;
+
 $bookings = isset($bookings) && is_array($bookings) ? $bookings : [];
 $filters = isset($filters) && is_array($filters) ? $filters : [];
 $brandLogo = trim((string) ($brand_logo ?? ''));
 $dateFrom = (string) ($filters['date_from'] ?? '');
 $dateTo = (string) ($filters['date_to'] ?? '');
+$homeContent = (new HomeContentService())->getHomePageContent();
+$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 $rangeLabel = ($dateFrom !== '' || $dateTo !== '') ? trim($dateFrom . ' a ' . $dateTo) : 'Todas las fechas filtradas';
 $bookingStatusLabels = \App\Core\StatusCatalog::bookingMap(true);
 $paymentStatusLabels = \App\Core\StatusCatalog::paymentMap(true);
@@ -106,7 +111,7 @@ $paymentStatusLabels = \App\Core\StatusCatalog::paymentMap(true);
                 <?php if ($brandLogo !== ''): ?>
                     <img class="brand-logo" src="<?= htmlspecialchars($brandLogo, ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
                 <?php else: ?>
-                    <div class="brand-fallback">Express Transfer Cancun</div>
+                    <div class="brand-fallback"><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?></div>
                 <?php endif; ?>
             </div>
             <div class="range-box">

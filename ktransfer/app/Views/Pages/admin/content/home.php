@@ -191,6 +191,36 @@ $contactTypes = [
                         <input type="text" name="voucher_line" value="<?= htmlspecialchars((string) ($form['voucher_line'] ?? '#1F2937'), ENT_QUOTES, 'UTF-8') ?>" placeholder="#1F2937">
                     </div>
                 </div>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>Telefono principal (footer voucher)</label>
+                        <input type="text" name="voucher_phone_primary" value="<?= htmlspecialchars((string) ($form['voucher_phone_primary'] ?? '+52 998 756 4000'), ENT_QUOTES, 'UTF-8') ?>" placeholder="+52 998 756 4000">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefono secundario (footer voucher)</label>
+                        <input type="text" name="voucher_phone_secondary" value="<?= htmlspecialchars((string) ($form['voucher_phone_secondary'] ?? '+52 998 222 3778'), ENT_QUOTES, 'UTF-8') ?>" placeholder="+52 998 222 3778">
+                    </div>
+                    <div class="form-group">
+                        <label>Email (footer voucher)</label>
+                        <input type="text" name="voucher_email" value="<?= htmlspecialchars((string) ($form['voucher_email'] ?? 'info@expresstransfercancun.com'), ENT_QUOTES, 'UTF-8') ?>" placeholder="info@tudominio.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Sitio web (footer voucher)</label>
+                        <input type="text" name="voucher_website" value="<?= htmlspecialchars((string) ($form['voucher_website'] ?? 'expresstransfercancun.com'), ENT_QUOTES, 'UTF-8') ?>" placeholder="tudominio.com">
+                    </div>
+                </div>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>QR voucher / ruta publica</label>
+                        <input type="text" name="voucher_qr_path" value="<?= htmlspecialchars((string) ($form['voucher_qr_path'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="/uploads/home/voucher-qr.webp">
+                    </div>
+                    <div class="form-group">
+                        <label>Subir QR voucher</label>
+                        <input type="file" name="voucher_qr_file" accept="image/png,image/jpeg,image/webp">
+                    </div>
+                </div>
             </section>
 
             <section class="settings-card">

@@ -21,6 +21,7 @@ class SearchController {
         $error = null;
         $setupRequired = false;
         $homeContent = $this->loadHomeContent();
+        $brandName = $this->resolveBrandName($homeContent);
 
         try {
             $db = DB::connection();
@@ -51,7 +52,7 @@ class SearchController {
         }
 
         return Response::view('public/home', [
-            'title' => 'Express Transfer Cancun - Private Airport Transfers',
+            'title' => $brandName . ' - Private Airport Transfers',
             'csrf_token' => Csrf::token(),
             'currencies' => $currencies,
             'zones' => $zones,
@@ -229,6 +230,12 @@ class SearchController {
     private function loadHomeContent(): array
     {
         return (new HomeContentService())->getHomePageContent();
+    }
+
+    private function resolveBrandName(array $homeContent): string
+    {
+        $brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+        return $brandName !== '' ? $brandName : 'Express Transfers';
     }
 
     private function formDataFromRequest(Request $request): array

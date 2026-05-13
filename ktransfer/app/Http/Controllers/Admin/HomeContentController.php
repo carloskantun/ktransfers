@@ -41,6 +41,7 @@ class HomeContentController
         $heroImageUploadErrors = $this->applyHeroImageUploads($form);
         $uploadError = $this->applyLogoUpload($form, 'brand_logo', 'brand_logo_file', 'header-logo');
         $lightLogoUploadError = $this->applyLogoUpload($form, 'brand_logo_light', 'brand_logo_light_file', 'light-logo');
+        $voucherQrUploadError = $this->applyLogoUpload($form, 'voucher_qr_path', 'voucher_qr_file', 'voucher-qr');
 
         $errors = $this->validateForm($form);
         $errors = array_merge($errors, $heroImageUploadErrors);
@@ -49,6 +50,9 @@ class HomeContentController
         }
         if ($lightLogoUploadError !== null) {
             $errors['brand_logo_light_upload'] = $lightLogoUploadError;
+        }
+        if ($voucherQrUploadError !== null) {
+            $errors['voucher_qr_upload'] = $voucherQrUploadError;
         }
 
         if (!empty($errors)) {
@@ -80,6 +84,11 @@ class HomeContentController
             'voucher_primary' => strtoupper(trim((string) $request->post('voucher_primary', '#17679A'))),
             'voucher_secondary' => strtoupper(trim((string) $request->post('voucher_secondary', '#0D4F79'))),
             'voucher_line' => strtoupper(trim((string) $request->post('voucher_line', '#1F2937'))),
+            'voucher_phone_primary' => trim((string) $request->post('voucher_phone_primary', '+52 998 756 4000')),
+            'voucher_phone_secondary' => trim((string) $request->post('voucher_phone_secondary', '+52 998 222 3778')),
+            'voucher_email' => trim((string) $request->post('voucher_email', 'info@expresstransfercancun.com')),
+            'voucher_website' => trim((string) $request->post('voucher_website', 'expresstransfercancun.com')),
+            'voucher_qr_path' => trim((string) $request->post('voucher_qr_path', '')),
 
             'landing_day_bg' => strtoupper(trim((string) $request->post('landing_day_bg', '#FFFDF8'))),
             'landing_day_text' => strtoupper(trim((string) $request->post('landing_day_text', '#101820'))),
@@ -135,6 +144,19 @@ class HomeContentController
             if ($logo !== '' && str_contains($logo, '..')) {
                 $errors[$logoField] = 'La ruta del logo no es valida.';
             }
+        }
+
+        $voucherQrPath = trim((string) ($form['voucher_qr_path'] ?? ''));
+        if ($voucherQrPath !== '' && preg_match('#^(https?://|/)#i', $voucherQrPath) !== 1) {
+            $errors['voucher_qr_path'] = 'QR de voucher: usa una URL completa o una ruta publica que empiece con /.';
+        }
+        if ($voucherQrPath !== '' && str_contains($voucherQrPath, '..')) {
+            $errors['voucher_qr_path'] = 'QR de voucher: la ruta no es valida.';
+        }
+
+        $voucherEmail = trim((string) ($form['voucher_email'] ?? ''));
+        if ($voucherEmail !== '' && filter_var($voucherEmail, FILTER_VALIDATE_EMAIL) === false) {
+            $errors['voucher_email'] = 'Email de voucher invalido.';
         }
 
         foreach (($form['hero_images'] ?? []) as $index => $heroImage) {
@@ -212,9 +234,12 @@ class HomeContentController
 
     private function formToContent(array $form): array
     {
+        $brandName = trim((string) ($form['brand_name'] ?? ''));
+
         return [
             'brand_logo' => (string) $form['brand_logo'],
             'brand_logo_light' => (string) $form['brand_logo_light'],
+            'brand_name' => $brandName !== '' ? $brandName : 'Express Transfers',
             'home_theme' => (string) $form['home_theme'],
             'booking_code_prefix' => (string) $form['booking_code_prefix'],
             'hero_images' => $this->normalizeHeroImages($form['hero_images'] ?? []),
@@ -222,6 +247,13 @@ class HomeContentController
                 'primary' => (string) $form['voucher_primary'],
                 'secondary' => (string) $form['voucher_secondary'],
                 'line' => (string) $form['voucher_line'],
+            ],
+            'voucher_contact' => [
+                'phone_primary' => trim((string) ($form['voucher_phone_primary'] ?? '')),
+                'phone_secondary' => trim((string) ($form['voucher_phone_secondary'] ?? '')),
+                'email' => trim((string) ($form['voucher_email'] ?? '')),
+                'website' => trim((string) ($form['voucher_website'] ?? '')),
+                'qr_path' => trim((string) ($form['voucher_qr_path'] ?? '')),
             ],
             'landing_theme' => [
                 'day' => [
@@ -280,6 +312,11 @@ class HomeContentController
             'voucher_primary' => (string) ($content['voucher_theme']['primary'] ?? '#17679A'),
             'voucher_secondary' => (string) ($content['voucher_theme']['secondary'] ?? '#0D4F79'),
             'voucher_line' => (string) ($content['voucher_theme']['line'] ?? '#1F2937'),
+            'voucher_phone_primary' => (string) ($content['voucher_contact']['phone_primary'] ?? '+52 998 756 4000'),
+            'voucher_phone_secondary' => (string) ($content['voucher_contact']['phone_secondary'] ?? '+52 998 222 3778'),
+            'voucher_email' => (string) ($content['voucher_contact']['email'] ?? 'info@expresstransfercancun.com'),
+            'voucher_website' => (string) ($content['voucher_contact']['website'] ?? 'expresstransfercancun.com'),
+            'voucher_qr_path' => (string) ($content['voucher_contact']['qr_path'] ?? ''),
 
             'landing_day_bg' => (string) ($content['landing_theme']['day']['bg'] ?? '#FFFDF8'),
             'landing_day_text' => (string) ($content['landing_theme']['day']['text'] ?? '#101820'),

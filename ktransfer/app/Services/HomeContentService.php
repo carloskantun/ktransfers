@@ -84,6 +84,13 @@ class HomeContentService {
                 'secondary' => '#0d4f79',
                 'line' => '#1f2937',
             ],
+            'voucher_contact' => [
+                'phone_primary' => '+52 998 756 4000',
+                'phone_secondary' => '+52 998 222 3778',
+                'email' => 'info@expresstransfercancun.com',
+                'website' => 'expresstransfercancun.com',
+                'qr_path' => '/assets/qr_spectial.png',
+            ],
             'landing_theme' => [
                 'day' => [
                     'bg' => '#fffdf8',
