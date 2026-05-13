@@ -1,6 +1,6 @@
 # Estado Actual del Sistema
 
-Fecha: 2026-05-11
+Fecha: 2026-05-13
 
 Este documento resume el estado real del proyecto despues de los cambios recientes. Debe leerse junto con `README.md`, `ARCHITECTURE.md` y `route-map.md`.
 
@@ -173,3 +173,16 @@ Pendiente:
 3. Expandir Home Settings a editor completo de copy/secciones.
 4. Agregar validaciones server-side mas completas al checkout.
 5. Crear smoke tests de instalacion, login, cotizacion, checkout y RBAC.
+
+## Publicacion y reutilizacion (GitHub base)
+
+Estado actual para publicar de forma segura:
+
+- `config.php` quedo como plantilla saneada para evitar exponer credenciales.
+- `config.example.php` define placeholders genericos por instancia.
+- Existe `.gitignore` para evitar commitear configuracion local y archivos de entorno.
+
+Pendiente manual recomendado antes de push:
+
+- Sacar del indice archivos sensibles si alguna vez se versionaron con datos reales.
+- Revisar si el dump `docs/u372499129_express.sql` debe quedar fuera del repositorio base.

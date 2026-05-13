@@ -149,6 +149,32 @@ Basado en producción:
 
 ---
 
+## Publicar en GitHub sin exponer datos sensibles
+
+Antes de subir cambios al repositorio remoto:
+
+- Nunca versionar `ktransfer/config/config.php` con credenciales reales.
+- Mantener solo valores de ejemplo en `ktransfer/config/config.example.php`.
+- Evitar versionar dumps de base de datos productiva con datos reales.
+- No subir `ktransfer/install/lock.php` (archivo por entorno).
+
+Checklist rapido:
+
+1. Confirmar que no existan usuarios/passwords reales en archivos de config.
+2. Confirmar que no existan llaves reales de pasarelas en docs o SQL.
+3. Confirmar que el repo incluya solo estructura reusable (migraciones + seeds base).
+
+## Base generica para nuevas paginas
+
+Este proyecto esta preparado para crear nuevas instancias white-label si se respetan estas reglas:
+
+- Marca, colores, prefijo de booking y contacto se parametrizan (no hardcode).
+- `base_url` y DB se definen por instancia via instalador/config local.
+- Los catálogos base viven en migraciones/seed, no en dumps productivos.
+- El flujo funcional se mantiene comun: Search -> Checkout -> Admin -> Operacion -> KPIs.
+
+---
+
 ## Roadmap (MVP recomendado)
 1) Instalador + Login + RBAC
 2) CRUD: Zones, Hotels/Airbnb, Services, Vehicles, Airlines, Pax Ranges, Rates

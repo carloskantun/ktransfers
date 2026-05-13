@@ -1,0 +1,14 @@
+# Runtime and environment-specific configuration
+ktransfer/config/config.php
+ktransfer/install/lock.php
+
+# Local writable storage
+ktransfer/storage/logs/
+ktransfer/storage/cache/
+ktransfer/storage/exports/
+
+# Public uploads
+public_html/uploads/
+
+# SQL dumps with real data should stay out of VCS
+*.sql.dump

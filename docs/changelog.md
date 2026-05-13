@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-05-13
+
+### Added
+
+- Archivo `.gitignore` con exclusiones para configuracion sensible y artefactos locales.
+- Guia de publicacion segura y enfoque white-label en `README.md`.
+
+### Changed
+
+- `ktransfer/config/config.php` saneado para repositorio (sin credenciales reales).
+- `ktransfer/config/config.example.php` normalizado como plantilla completa de instancia.
+
+### Notes
+
+- Antes de publicar al remoto, remover de indice cualquier archivo sensible que ya haya sido trackeado historicamente.
+- Evaluar si el dump `docs/u372499129_express.sql` debe mantenerse fuera del repo principal por contener datos de entorno real.
+
 ## 2026-05-11
 
 ### Added

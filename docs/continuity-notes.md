@@ -1,6 +1,11 @@
 # Continuity Notes
 
-Fecha: 2026-03-20
+Fecha base: 2026-03-20
+
+Actualizacion de contexto: 2026-05-13
+
+Este documento conserva notas historicas de continuidad.
+Para estado funcional vigente, revisar primero `docs/CURRENT_STATUS.md` y `docs/changelog.md`.
 
 ## Lo que ya se hizo
 
