@@ -27,6 +27,13 @@ $adminLogoCandidates = [
 
 $adminLogoPath = null;
 $homeContent = (new HomeContentService())->getHomePageContent();
+$tracking = is_array($homeContent['tracking'] ?? null) ? $homeContent['tracking'] : [];
+$gtmContainerId = strtoupper(trim((string) ($tracking['gtm_container_id'] ?? '')));
+if (preg_match('/^GTM-[A-Z0-9]{4,20}$/', $gtmContainerId) !== 1) {
+    $gtmContainerId = '';
+}
+
+$customHeadScript = trim((string) ($tracking['custom_head_script'] ?? ''));
 
 $normalizeHex = static function ($value, string $fallback): string {
     $value = strtoupper(trim((string) $value));
@@ -94,6 +101,18 @@ foreach ($adminLogoCandidates as $candidate) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars((string) $title, ENT_QUOTES, 'UTF-8') ?> - Admin</title>
+    <?php if ($gtmContainerId !== ''): ?>
+        <script>
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','<?= htmlspecialchars($gtmContainerId, ENT_QUOTES, 'UTF-8') ?>');
+        </script>
+    <?php endif; ?>
+    <?php if ($customHeadScript !== ''): ?>
+        <?= $customHeadScript ?>
+    <?php endif; ?>
     <style>
         :root {
             --bg: <?= htmlspecialchars($adminBg, ENT_QUOTES, 'UTF-8') ?>;
@@ -587,6 +606,9 @@ foreach ($adminLogoCandidates as $candidate) {
     </style>
 </head>
 <body>
+    <?php if ($gtmContainerId !== ''): ?>
+        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=<?= htmlspecialchars($gtmContainerId, ENT_QUOTES, 'UTF-8') ?>" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <?php endif; ?>
     <aside class="sidebar">
         <input class="sidebar-toggle" type="checkbox" id="admin-menu-toggle" aria-label="Abrir menu admin">
         <div class="sidebar-top">

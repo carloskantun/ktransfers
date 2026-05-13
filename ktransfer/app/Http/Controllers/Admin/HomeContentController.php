@@ -109,6 +109,9 @@ class HomeContentController
             'payment_paypal_client_id' => trim((string) $request->post('payment_paypal_client_id', '')),
             'payment_paypal_client_secret' => trim((string) $request->post('payment_paypal_client_secret', '')),
 
+            'gtm_container_id' => strtoupper(trim((string) $request->post('gtm_container_id', ''))),
+            'custom_head_script' => $this->sanitizeCustomScript((string) $request->post('custom_head_script', '')),
+
             'hero_images' => $this->heroImagesFromRequest($request),
             'contact_channels' => $this->contactChannelsFromRequest($request),
         ];
@@ -207,6 +210,16 @@ class HomeContentController
             }
         }
 
+        $gtmContainerId = trim((string) ($form['gtm_container_id'] ?? ''));
+        if ($gtmContainerId !== '' && preg_match('/^GTM-[A-Z0-9]{4,20}$/', $gtmContainerId) !== 1) {
+            $errors['gtm_container_id'] = 'El ID de Google Tag Manager no es valido. Ejemplo: GTM-ABC1234.';
+        }
+
+        $customHeadScript = (string) ($form['custom_head_script'] ?? '');
+        if (mb_strlen($customHeadScript) > 12000) {
+            $errors['custom_head_script'] = 'El script personalizado es demasiado largo (maximo 12000 caracteres).';
+        }
+
         return $errors;
     }
 
@@ -261,6 +274,10 @@ class HomeContentController
                     'client_secret' => (string) $form['payment_paypal_client_secret'],
                 ],
             ],
+            'tracking' => [
+                'gtm_container_id' => (string) $form['gtm_container_id'],
+                'custom_head_script' => (string) $form['custom_head_script'],
+            ],
         ];
     }
 
@@ -309,8 +326,24 @@ class HomeContentController
             'payment_paypal_client_id' => (string) ($content['payment_settings']['paypal']['client_id'] ?? ''),
             'payment_paypal_client_secret' => (string) ($content['payment_settings']['paypal']['client_secret'] ?? ''),
 
+            'gtm_container_id' => strtoupper(trim((string) ($content['tracking']['gtm_container_id'] ?? ''))),
+            'custom_head_script' => (string) ($content['tracking']['custom_head_script'] ?? ''),
+
             'contact_channels' => $this->contactChannelsToForm($content['contact_channels'] ?? []),
         ];
+    }
+
+    private function sanitizeCustomScript(string $script): string
+    {
+        $script = trim($script);
+        if ($script === '') {
+            return '';
+        }
+
+        // Avoid accidental PHP execution if someone pastes server-side tags.
+        $script = str_replace(['<?', '?>'], '', $script);
+
+        return $script;
     }
 
     private function contactChannelsFromRequest(Request $request): array

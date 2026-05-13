@@ -121,6 +121,10 @@ class HomeContentService {
                     'client_secret' => '',
                 ],
             ],
+            'tracking' => [
+                'gtm_container_id' => '',
+                'custom_head_script' => '',
+            ],
             'home_theme' => 'day',
             'eyebrow' => 'Private Cancun airport transfers for resorts, villas, executive arrivals and high-touch travel teams',
             'hero_mode' => 'slider',

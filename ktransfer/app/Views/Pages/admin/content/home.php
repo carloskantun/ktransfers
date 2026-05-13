@@ -376,6 +376,24 @@ $contactTypes = [
                     </div>
                 </div>
             </section>
+
+            <section class="settings-card">
+                <h2>Tracking y scripts globales</h2>
+                <p>Configura Google Tag Manager y un script clasico para insertarlo en el &lt;head&gt; de todo el sitio.</p>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>Google Tag Manager ID</label>
+                        <input type="text" name="gtm_container_id" value="<?= htmlspecialchars((string) ($form['gtm_container_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="GTM-ABC1234" style="text-transform:uppercase;">
+                        <span class="field-note">Formato esperado: GTM-XXXXXXX. Si lo dejas vacio, no se inyecta GTM.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Script clasico (head)</label>
+                        <textarea name="custom_head_script" rows="8" placeholder="&lt;script&gt;...&lt;/script&gt;"><?= htmlspecialchars((string) ($form['custom_head_script'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+                        <span class="field-note">Pega un script completo (por ejemplo pixel o analytics). Se inserta tal cual en todo el sitio.</span>
+                    </div>
+                </div>
+            </section>
         </div>
 
         <div class="form-actions" style="margin-top: 16px;">
