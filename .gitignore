@@ -12,3 +12,5 @@ public_html/uploads/
 
 # SQL dumps with real data should stay out of VCS
 *.sql.dump
+
+.vscode/
