@@ -14,5 +14,3 @@ public_html/uploads/
 *.sql.dump
 
 .vscode/
-
-.DS_Store
