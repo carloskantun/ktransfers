@@ -1,2 +1,0 @@
-<?php
-// Instalación completada el 2026-04-09 18:57:55
