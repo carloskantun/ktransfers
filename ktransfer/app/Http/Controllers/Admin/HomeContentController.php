@@ -73,6 +73,7 @@ class HomeContentController
         return [
             'brand_logo' => trim((string) $request->post('brand_logo', '')),
             'brand_logo_light' => trim((string) $request->post('brand_logo_light', '')),
+            'brand_name' => trim((string) $request->post('brand_name', 'Express Transfers')),
             'home_theme' => trim((string) $request->post('home_theme', 'day')),
             'booking_code_prefix' => strtoupper(trim((string) $request->post('booking_code_prefix', ''))),
 
@@ -271,6 +272,7 @@ class HomeContentController
         return [
             'brand_logo' => (string) ($content['brand_logo'] ?? ''),
             'brand_logo_light' => (string) ($content['brand_logo_light'] ?? ''),
+            'brand_name' => (string) ($content['brand_name'] ?? 'Express Transfers'),
             'home_theme' => (string) ($content['home_theme'] ?? 'day'),
             'booking_code_prefix' => (string) ($content['booking_code_prefix'] ?? 'KTR'),
             'hero_images' => $this->heroImagesToForm($content['hero_images'] ?? []),

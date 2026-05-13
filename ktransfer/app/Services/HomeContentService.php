@@ -77,6 +77,7 @@ class HomeContentService {
             ],
             'brand_logo' => '',
             'brand_logo_light' => '',
+            'brand_name' => 'Express Transfers',
             'booking_code_prefix' => 'KTR',
             'voucher_theme' => [
                 'primary' => '#17679a',

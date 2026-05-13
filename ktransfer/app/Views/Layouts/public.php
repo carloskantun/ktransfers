@@ -119,6 +119,8 @@ $landingNightFooterBg = $normalizeHex($landingNight['footer_bg'] ?? '', '#071114
 $brandLogoDayUrl = is_string($brandLogoDayPath) && $brandLogoDayPath !== '' ? $assetVersion($brandLogoDayPath) : '';
 $brandLogoNightUrl = is_string($brandLogoNightPath) && $brandLogoNightPath !== '' ? $assetVersion($brandLogoNightPath) : '';
 $brandLogoDefaultUrl = is_string($brandLogoPath) && $brandLogoPath !== '' ? $assetVersion($brandLogoPath) : '';
+$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 ?>
 <!doctype html>
 <html lang="<?= htmlspecialchars($publicLocale, ENT_QUOTES, 'UTF-8') ?>">
@@ -178,7 +180,7 @@ $brandLogoDefaultUrl = is_string($brandLogoPath) && $brandLogoPath !== '' ? $ass
         <section class="site-frame <?= $isImmersiveLayout ? 'is-immersive' : '' ?>">
             <header class="site-header <?= $isImmersiveLayout ? 'is-immersive' : '' ?>">
                 <div class="brand-lockup">
-                    <a class="brand-logo-link" href="/" aria-label="Express Transfer Cancun home">
+                    <a class="brand-logo-link" href="/" aria-label="<?= htmlspecialchars($brandName . ' home', ENT_QUOTES, 'UTF-8') ?>">
                         <?php if (is_string($brandLogoPath) && $brandLogoPath !== ''): ?>
                             <img
                                 id="site-brand-logo"
@@ -186,14 +188,14 @@ $brandLogoDefaultUrl = is_string($brandLogoPath) && $brandLogoPath !== '' ? $ass
                                 src="<?= htmlspecialchars($brandLogoDefaultUrl, ENT_QUOTES, 'UTF-8') ?>"
                                 data-logo-day="<?= htmlspecialchars($brandLogoDayUrl, ENT_QUOTES, 'UTF-8') ?>"
                                 data-logo-night="<?= htmlspecialchars($brandLogoNightUrl, ENT_QUOTES, 'UTF-8') ?>"
-                                alt="Express Transfer Cancun"
+                                alt="<?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?>"
                                 width="300"
                                 height="122"
                                 loading="eager"
                                 decoding="async"
                             >
                         <?php else: ?>
-                            <span class="brand-fallback">Express Transfer Cancun</span>
+                            <span class="brand-fallback"><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?></span>
                         <?php endif; ?>
                     </a>
                 </div>
@@ -245,7 +247,7 @@ $brandLogoDefaultUrl = is_string($brandLogoPath) && $brandLogoPath !== '' ? $ass
             </div>
 
             <footer class="site-footer <?= $isImmersiveLayout ? 'is-immersive' : '' ?>">
-                <div class="site-footer-copy">Express Transfer Cancun</div>
+                <div class="site-footer-copy"><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?></div>
                 <nav class="site-footer-nav" aria-label="Footer">
                     <a href="/#booking-form"><?= htmlspecialchars($publicT('nav.book', 'Book'), ENT_QUOTES, 'UTF-8') ?></a>
                     <a href="/#experience"><?= htmlspecialchars($publicT('nav.experience', 'Experience'), ENT_QUOTES, 'UTF-8') ?></a>

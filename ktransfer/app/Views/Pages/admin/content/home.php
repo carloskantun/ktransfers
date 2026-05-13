@@ -119,7 +119,7 @@ $contactTypes = [
         <div class="settings-grid">
             <section class="settings-card">
                 <h2>Marca y codigo de reserva</h2>
-                <p>Define logos y prefijo de reserva de 3 letras (ejemplo: ETC-20260508-AB12).</p>
+                <p>Define logos, nombre de marca y prefijo de reserva de 3 letras (ejemplo: ETC-20260508-AB12).</p>
 
                 <div class="settings-two-col">
                     <div class="form-group">
@@ -143,15 +143,9 @@ $contactTypes = [
 
                 <div class="settings-two-col">
                     <div class="form-group">
-                        <label>Prefijo de reserva (3 letras)</label>
-                        <input type="text" name="booking_code_prefix" maxlength="3" value="<?= htmlspecialchars((string) ($form['booking_code_prefix'] ?? 'KTR'), ENT_QUOTES, 'UTF-8') ?>" placeholder="ETC" style="text-transform:uppercase;">
-                        <span class="field-note">
-                            <?php if ($suggestedPrefix !== ''): ?>
-                                Sugerido por dominio: <strong><?= htmlspecialchars($suggestedPrefix, ENT_QUOTES, 'UTF-8') ?></strong>
-                            <?php else: ?>
-                                Usa 3 letras de la marca.
-                            <?php endif; ?>
-                        </span>
+                        <label>Nombre de marca (fallback si no hay logo)</label>
+                        <input type="text" name="brand_name" value="<?= htmlspecialchars((string) ($form['brand_name'] ?? 'Express Transfers'), ENT_QUOTES, 'UTF-8') ?>" placeholder="Express Transfers">
+                        <span class="field-note">Se muestra cuando no hay logo disponible y en los atributos del sitio. Ejemplo: "Express Transfers" o "Lujo Cancun".</span>
                     </div>
 
                     <div class="form-group">
@@ -161,6 +155,20 @@ $contactTypes = [
                             <option value="day" <?= $homeTheme === 'day' ? 'selected' : '' ?>>Dia</option>
                             <option value="night" <?= $homeTheme === 'night' ? 'selected' : '' ?>>Noche</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>Prefijo de reserva (3 letras)</label>
+                        <input type="text" name="booking_code_prefix" maxlength="3" value="<?= htmlspecialchars((string) ($form['booking_code_prefix'] ?? 'KTR'), ENT_QUOTES, 'UTF-8') ?>" placeholder="ETC" style="text-transform:uppercase;">
+                        <span class="field-note">
+                            <?php if ($suggestedPrefix !== ''): ?>
+                                Sugerido por dominio: <strong><?= htmlspecialchars($suggestedPrefix, ENT_QUOTES, 'UTF-8') ?></strong>
+                            <?php else: ?>
+                                Usa 3 letras de la marca.
+                            <?php endif; ?>
+                        </span>
                     </div>
                 </div>
             </section>

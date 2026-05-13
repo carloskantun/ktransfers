@@ -1042,24 +1042,37 @@ textarea[aria-invalid="true"] {
 @media (max-width: 680px) {
     .site-header {
         grid-template-columns: 1fr auto;
+        padding: 12px 16px;
+        gap: 14px;
+    }
+
+    .site-header.is-immersive {
+        padding: 10px 14px;
     }
 
     .brand-logo-link {
         gap: 8px;
+        min-width: 0;
     }
 
     .brand-logo {
-        max-width: 160px;
-        height: 34px;
+        max-width: 140px;
+        height: 32px;
     }
 
     .brand-logo--wordmark {
-        max-width: 146px;
-        height: 38px;
+        max-width: 120px;
+        height: 34px;
+    }
+
+    .brand-fallback {
+        min-height: 32px;
+        font-size: var(--font-size-lg);
+        font-weight: 700;
     }
 
     .brand-name {
-        font-size: 1.72rem;
+        font-size: 1.4rem;
     }
 
     .header-nav {
@@ -1068,6 +1081,10 @@ textarea[aria-invalid="true"] {
 
     .header-cta {
         display: none;
+    }
+
+    .header-actions {
+        gap: 8px;
     }
 }
 
