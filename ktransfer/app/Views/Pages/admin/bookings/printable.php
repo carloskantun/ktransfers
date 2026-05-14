@@ -11,6 +11,7 @@ $isRoundTrip = (string) ($booking['trip_type'] ?? '') === 'ROUND_TRIP';
 
 $homeContent = (new HomeContentService())->getHomePageContent();
 $voucherTheme = is_array($homeContent['voucher_theme'] ?? null) ? $homeContent['voucher_theme'] : [];
+$documentFooter = is_array($homeContent['document_footer'] ?? null) ? $homeContent['document_footer'] : [];
 $normalizeHex = static function ($value, string $fallback): string {
     $value = strtoupper(trim((string) $value));
     if (preg_match('/^#[0-9A-F]{6}$/', $value) === 1) {
@@ -23,10 +24,35 @@ $voucherPrimary = $normalizeHex($voucherTheme['primary'] ?? '', '#17679A');
 $voucherSecondary = $normalizeHex($voucherTheme['secondary'] ?? '', '#0D4F79');
 $voucherLine = $normalizeHex($voucherTheme['line'] ?? '', '#1F2937');
 
-if ($brandLogo === '' && is_file(dirname(__DIR__, 6) . '/public_html/assets/expresslogo-300x122.png.webp')) {
+$footerVoucher = is_array($documentFooter['voucher'] ?? null) ? $documentFooter['voucher'] : [];
+$footerServiceOrder = is_array($documentFooter['service_order'] ?? null) ? $documentFooter['service_order'] : [];
+$activeFooter = $documentType === 'service_order' ? $footerServiceOrder : $footerVoucher;
+
+$footerHeadline = trim((string) ($activeFooter['headline'] ?? ''));
+if ($footerHeadline === '') {
+    $footerHeadline = 'GRACIAS POR SU PREFERENCIA / THANK YOU FOR YOUR PREFERENCE';
+}
+
+$footerLine1 = trim((string) ($activeFooter['line_1'] ?? ''));
+if ($footerLine1 === '') {
+    $footerLine1 = 'Reservation phone: +52 998 756 4000 | +52 998 222 3778';
+}
+
+$footerLine2 = trim((string) ($activeFooter['line_2'] ?? ''));
+if ($footerLine2 === '') {
+    $footerLine2 = 'info@expresstransfercancun.com | expresstransfercancun.com';
+}
+
+$projectPublicRoot = dirname(__DIR__, 6) . '/public_html';
+
+if ($brandLogo === '' && is_file($projectPublicRoot . '/assets/expresslogo-300x122.png.webp')) {
     $brandLogo = '/assets/expresslogo-300x122.png.webp';
 }
-$qrPath = is_file(dirname(__DIR__, 6) . '/public_html/assets/qr_spectial.png') ? '/assets/qr_spectial.png' : '';
+
+$qrPath = trim((string) ($documentFooter['qr_image'] ?? ''));
+if ($qrPath === '' && is_file($projectPublicRoot . '/assets/qr_spectial.png')) {
+    $qrPath = '/assets/qr_spectial.png';
+}
 
 $h = static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $formatDate = static function ($value): string {
@@ -94,7 +120,7 @@ $paymentStatus = (string) ($booking['payment_status'] ?? 'UNPAID');
 $remarks = trim((string) ($booking['pickup_notes'] ?? ''));
 $additional = trim((string) ($booking['work_order_notes'] ?? ''));
 $bookingCode = (string) ($booking['booking_code'] ?? '');
-$documentLabel = $documentType === 'service_order' ? 'ORDEN DE SERVICIO/SERVICE ORDER' : 'ORDEN DE SERVICIO/SERVICE ORDER';
+$documentLabel = $documentType === 'service_order' ? 'ORDEN DE SERVICIO/SERVICE ORDER' : 'VOUCHER / VOUCHER';
 
 $renderTrip = static function (array $trip) use ($h): void {
     $rows = [
@@ -497,9 +523,9 @@ $renderTrip = static function (array $trip) use ($h): void {
                     <?php endif; ?>
                 </div>
                 <div class="footer-copy">
-                    <div class="thanks">GRACIAS POR SU PREFERENCIA / THANK YOU FOR YOUR PREFERENCE</div>
-                    <div>Reservation phone: +52 998 756 4000 &nbsp; | &nbsp; +52 998 222 3778</div>
-                    <div>info@expresstransfercancun.com &nbsp; | &nbsp; expresstransfercancun.com</div>
+                    <div class="thanks"><?= $h($footerHeadline) ?></div>
+                    <div><?= $h($footerLine1) ?></div>
+                    <div><?= $h($footerLine2) ?></div>
                 </div>
             </div>
         </footer>

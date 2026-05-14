@@ -41,6 +41,7 @@ class HomeContentController
         $heroImageUploadErrors = $this->applyHeroImageUploads($form);
         $uploadError = $this->applyLogoUpload($form, 'brand_logo', 'brand_logo_file', 'header-logo');
         $lightLogoUploadError = $this->applyLogoUpload($form, 'brand_logo_light', 'brand_logo_light_file', 'light-logo');
+        $qrUploadError = $this->applyLogoUpload($form, 'document_footer_qr_image', 'document_footer_qr_file', 'document-qr');
 
         $errors = $this->validateForm($form);
         $errors = array_merge($errors, $heroImageUploadErrors);
@@ -49,6 +50,9 @@ class HomeContentController
         }
         if ($lightLogoUploadError !== null) {
             $errors['brand_logo_light_upload'] = $lightLogoUploadError;
+        }
+        if ($qrUploadError !== null) {
+            $errors['document_footer_qr_upload'] = $qrUploadError;
         }
 
         if (!empty($errors)) {
@@ -80,6 +84,14 @@ class HomeContentController
             'voucher_primary' => strtoupper(trim((string) $request->post('voucher_primary', '#17679A'))),
             'voucher_secondary' => strtoupper(trim((string) $request->post('voucher_secondary', '#0D4F79'))),
             'voucher_line' => strtoupper(trim((string) $request->post('voucher_line', '#1F2937'))),
+
+            'document_footer_voucher_headline' => trim((string) $request->post('document_footer_voucher_headline', '')),
+            'document_footer_voucher_line_1' => trim((string) $request->post('document_footer_voucher_line_1', '')),
+            'document_footer_voucher_line_2' => trim((string) $request->post('document_footer_voucher_line_2', '')),
+            'document_footer_service_order_headline' => trim((string) $request->post('document_footer_service_order_headline', '')),
+            'document_footer_service_order_line_1' => trim((string) $request->post('document_footer_service_order_line_1', '')),
+            'document_footer_service_order_line_2' => trim((string) $request->post('document_footer_service_order_line_2', '')),
+            'document_footer_qr_image' => trim((string) $request->post('document_footer_qr_image', '')),
 
             'landing_day_bg' => strtoupper(trim((string) $request->post('landing_day_bg', '#FFFDF8'))),
             'landing_day_text' => strtoupper(trim((string) $request->post('landing_day_text', '#101820'))),
@@ -138,6 +150,14 @@ class HomeContentController
             if ($logo !== '' && str_contains($logo, '..')) {
                 $errors[$logoField] = 'La ruta del logo no es valida.';
             }
+        }
+
+        $qrImage = trim((string) ($form['document_footer_qr_image'] ?? ''));
+        if ($qrImage !== '' && preg_match('#^(https?://|/)#i', $qrImage) !== 1) {
+            $errors['document_footer_qr_image'] = 'QR: usa una URL completa o una ruta publica que empiece con /.';
+        }
+        if ($qrImage !== '' && str_contains($qrImage, '..')) {
+            $errors['document_footer_qr_image'] = 'QR: la ruta no es valida.';
         }
 
         foreach (($form['hero_images'] ?? []) as $index => $heroImage) {
@@ -236,6 +256,19 @@ class HomeContentController
                 'secondary' => (string) $form['voucher_secondary'],
                 'line' => (string) $form['voucher_line'],
             ],
+            'document_footer' => [
+                'voucher' => [
+                    'headline' => (string) $form['document_footer_voucher_headline'],
+                    'line_1' => (string) $form['document_footer_voucher_line_1'],
+                    'line_2' => (string) $form['document_footer_voucher_line_2'],
+                ],
+                'service_order' => [
+                    'headline' => (string) $form['document_footer_service_order_headline'],
+                    'line_1' => (string) $form['document_footer_service_order_line_1'],
+                    'line_2' => (string) $form['document_footer_service_order_line_2'],
+                ],
+                'qr_image' => (string) $form['document_footer_qr_image'],
+            ],
             'landing_theme' => [
                 'day' => [
                     'bg' => (string) $form['landing_day_bg'],
@@ -297,6 +330,14 @@ class HomeContentController
             'voucher_primary' => (string) ($content['voucher_theme']['primary'] ?? '#17679A'),
             'voucher_secondary' => (string) ($content['voucher_theme']['secondary'] ?? '#0D4F79'),
             'voucher_line' => (string) ($content['voucher_theme']['line'] ?? '#1F2937'),
+
+            'document_footer_voucher_headline' => (string) ($content['document_footer']['voucher']['headline'] ?? ''),
+            'document_footer_voucher_line_1' => (string) ($content['document_footer']['voucher']['line_1'] ?? ''),
+            'document_footer_voucher_line_2' => (string) ($content['document_footer']['voucher']['line_2'] ?? ''),
+            'document_footer_service_order_headline' => (string) ($content['document_footer']['service_order']['headline'] ?? ''),
+            'document_footer_service_order_line_1' => (string) ($content['document_footer']['service_order']['line_1'] ?? ''),
+            'document_footer_service_order_line_2' => (string) ($content['document_footer']['service_order']['line_2'] ?? ''),
+            'document_footer_qr_image' => (string) ($content['document_footer']['qr_image'] ?? ''),
 
             'landing_day_bg' => (string) ($content['landing_theme']['day']['bg'] ?? '#FFFDF8'),
             'landing_day_text' => (string) ($content['landing_theme']['day']['text'] ?? '#101820'),

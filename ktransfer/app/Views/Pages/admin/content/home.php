@@ -194,6 +194,56 @@ $contactTypes = [
             </section>
 
             <section class="settings-card">
+                <h2>Footer de voucher y orden</h2>
+                <p>Configura textos del pie para voucher y orden de servicio, y el QR que se muestra en ambos documentos.</p>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>Voucher - titulo principal</label>
+                        <input type="text" name="document_footer_voucher_headline" value="<?= htmlspecialchars((string) ($form['document_footer_voucher_headline'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="GRACIAS POR SU PREFERENCIA / THANK YOU FOR YOUR PREFERENCE">
+                    </div>
+                    <div class="form-group">
+                        <label>Orden - titulo principal</label>
+                        <input type="text" name="document_footer_service_order_headline" value="<?= htmlspecialchars((string) ($form['document_footer_service_order_headline'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="GRACIAS POR SU PREFERENCIA / THANK YOU FOR YOUR PREFERENCE">
+                    </div>
+                </div>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>Voucher - linea 1</label>
+                        <input type="text" name="document_footer_voucher_line_1" value="<?= htmlspecialchars((string) ($form['document_footer_voucher_line_1'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Reservation phone: +52 ... | +52 ...">
+                    </div>
+                    <div class="form-group">
+                        <label>Orden - linea 1</label>
+                        <input type="text" name="document_footer_service_order_line_1" value="<?= htmlspecialchars((string) ($form['document_footer_service_order_line_1'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Reservation phone: +52 ... | +52 ...">
+                    </div>
+                </div>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>Voucher - linea 2</label>
+                        <input type="text" name="document_footer_voucher_line_2" value="<?= htmlspecialchars((string) ($form['document_footer_voucher_line_2'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="info@dominio.com | dominio.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Orden - linea 2</label>
+                        <input type="text" name="document_footer_service_order_line_2" value="<?= htmlspecialchars((string) ($form['document_footer_service_order_line_2'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="info@dominio.com | dominio.com">
+                    </div>
+                </div>
+
+                <div class="settings-two-col">
+                    <div class="form-group">
+                        <label>QR (URL o ruta publica)</label>
+                        <input type="text" name="document_footer_qr_image" value="<?= htmlspecialchars((string) ($form['document_footer_qr_image'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="/uploads/home/document-qr.webp">
+                        <span class="field-note">Si queda vacio, usa el QR legacy de assets si existe.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Subir QR</label>
+                        <input type="file" name="document_footer_qr_file" accept="image/png,image/jpeg,image/webp">
+                    </div>
+                </div>
+            </section>
+
+            <section class="settings-card">
                 <h2>Colores landing - tema dia</h2>
                 <div class="settings-five-col">
                     <div class="form-group">
