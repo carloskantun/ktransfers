@@ -14,6 +14,7 @@ class HomeContentController
 {
     private const LOGO_UPLOAD_DIR = '/uploads/home';
     private const CONTACT_CHANNEL_TYPES = ['whatsapp', 'call', 'sms', 'telegram', 'email'];
+    private const CONTACT_QUICK_STYLE_TYPES = ['bubble', 'bottom_bar'];
     private const HERO_IMAGE_SLOTS = 6;
 
     public function edit(Request $request): Response
@@ -123,6 +124,8 @@ class HomeContentController
 
             'gtm_container_id' => strtoupper(trim((string) $request->post('gtm_container_id', ''))),
             'custom_head_script' => $this->sanitizeCustomScript((string) $request->post('custom_head_script', '')),
+
+            'contact_quick_style' => trim((string) $request->post('contact_quick_style', 'bubble')),
 
             'hero_images' => $this->heroImagesFromRequest($request),
             'contact_channels' => $this->contactChannelsFromRequest($request),
@@ -235,6 +238,10 @@ class HomeContentController
             }
         }
 
+        if (!in_array((string) ($form['contact_quick_style'] ?? ''), self::CONTACT_QUICK_STYLE_TYPES, true)) {
+            $errors['contact_quick_style'] = 'Selecciona un estilo valido para contacto rapido.';
+        }
+
         $gtmContainerId = trim((string) ($form['gtm_container_id'] ?? ''));
         if ($gtmContainerId !== '' && preg_match('/^GTM-[A-Z0-9]{4,20}$/', $gtmContainerId) !== 1) {
             $errors['gtm_container_id'] = 'El ID de Google Tag Manager no es valido. Ejemplo: GTM-ABC1234.';
@@ -296,6 +303,7 @@ class HomeContentController
                 ],
             ],
             'contact_channels' => $this->normalizeContactChannels($form['contact_channels'] ?? []),
+            'contact_quick_style' => (string) $form['contact_quick_style'],
             'payment_settings' => [
                 'mercado_pago' => [
                     'enabled' => $form['payment_mercado_pago_enabled'] === '1',
@@ -377,6 +385,7 @@ class HomeContentController
             'custom_head_script' => (string) ($content['tracking']['custom_head_script'] ?? ''),
 
             'contact_channels' => $this->contactChannelsToForm($content['contact_channels'] ?? []),
+            'contact_quick_style' => (string) ($content['contact_quick_style'] ?? 'bubble'),
         ];
     }
 

@@ -336,6 +336,18 @@ $contactTypes = [
                 <h2>Canales de contacto</h2>
                 <p>Se muestran en el boton flotante y accesos rapidos de la home publica.</p>
 
+                <div class="settings-two-col" style="margin-bottom: 12px;">
+                    <div class="form-group">
+                        <label>Estilo de contacto rapido</label>
+                        <?php $contactQuickStyle = (string) ($form['contact_quick_style'] ?? 'bubble'); ?>
+                        <select name="contact_quick_style">
+                            <option value="bubble" <?= $contactQuickStyle === 'bubble' ? 'selected' : '' ?>>Burbuja flotante (actual)</option>
+                            <option value="bottom_bar" <?= $contactQuickStyle === 'bottom_bar' ? 'selected' : '' ?>>Barra fija inferior (tipo cancunyates)</option>
+                        </select>
+                        <span class="field-note">Burbuja muestra un boton que despliega canales. Barra fija muestra los canales en columna al fondo para accion rapida.</span>
+                    </div>
+                </div>
+
                 <div class="settings-grid">
                     <?php for ($i = 0; $i < 4; $i++): ?>
                         <?php $channel = is_array($contactChannels[$i] ?? null) ? $contactChannels[$i] : ['type' => 'whatsapp', 'title' => '', 'value' => '', 'url' => '']; ?>

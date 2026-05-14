@@ -205,6 +205,7 @@ class HomeContentService {
                 ['type' => 'sms', 'title' => 'SMS updates', 'value' => '+52 998 123 4567', 'url' => 'sms:+529981234567'],
                 ['type' => 'telegram', 'title' => 'Telegram', 'value' => '@ktransfers', 'url' => 'https://t.me/ktransfers'],
             ],
+            'contact_quick_style' => 'bubble',
             'social_links' => [
                 ['label' => 'Instagram', 'url' => 'https://instagram.com/ktransfers'],
                 ['label' => 'Facebook', 'url' => 'https://facebook.com/ktransfers'],

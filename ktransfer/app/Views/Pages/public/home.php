@@ -10,6 +10,10 @@ $error = $error ?? null;
 $badges = is_array($homeContent['badges'] ?? null) ? $homeContent['badges'] : [];
 $heroSlides = is_array($homeContent['hero_slides'] ?? null) ? $homeContent['hero_slides'] : [];
 $contactChannels = is_array($homeContent['contact_channels'] ?? null) ? $homeContent['contact_channels'] : [];
+$contactQuickStyle = (string) ($homeContent['contact_quick_style'] ?? 'bubble');
+if (!in_array($contactQuickStyle, ['bubble', 'bottom_bar'], true)) {
+    $contactQuickStyle = 'bubble';
+}
 $sections = is_array($homeContent['sections'] ?? null) ? $homeContent['sections'] : [];
 $publicLayoutMode = 'immersive';
 $publicT = is_callable($public_t ?? null) ? $public_t : static fn (string $key, string $fallback): string => $fallback;
@@ -175,7 +179,7 @@ $showcaseImages = [
     'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1600&q=80',
 ];
 ?>
-<div class="lux-home travel-home travel-home--<?= $escape($searchPanelLayout) ?>">
+<div class="lux-home travel-home travel-home--<?= $escape($searchPanelLayout) ?> floating-contact-style-<?= $escape($contactQuickStyle) ?>">
     <section class="hero-stack hero-stack--<?= $escape($searchPanelLayout) ?>">
         <div class="hero-media<?= $heroVideoUrl !== null ? ' has-video' : '' ?>">
             <?php if ($heroVideoUrl !== null): ?>
@@ -414,7 +418,7 @@ $showcaseImages = [
         return is_array($channel) && trim((string) ($channel['title'] ?? '')) !== '';
     }));
     ?>
-    <?php if (!empty($floatingChannels)): ?>
+    <?php if (!empty($floatingChannels) && $contactQuickStyle === 'bubble'): ?>
         <div class="fab-contact" aria-label="<?= $escape($publicT('fab.aria', 'Quick contact options')) ?>">
             <div class="fab-channels" id="fab-channels">
                 <?php foreach ($floatingChannels as $channel): ?>
@@ -433,6 +437,32 @@ $showcaseImages = [
                 </span>
                 <span class="fab-toggle-label"><?= $escape($publicT('fab.label', 'Contact us')) ?></span>
             </button>
+        </div>
+    <?php endif; ?>
+
+    <?php if (!empty($floatingChannels) && $contactQuickStyle === 'bottom_bar'): ?>
+        <div class="contact-bottom-bar" aria-label="<?= $escape($publicT('fab.aria', 'Quick contact options')) ?>">
+            <div class="contact-bottom-bar__grid">
+                <?php foreach ($floatingChannels as $channel): ?>
+                    <?php
+                    $channelType = strtolower(trim((string) ($channel['type'] ?? '')));
+                    $channelHref = $buildChannelUrl($channel);
+                    $channelIsWeb = preg_match('#^https?://#i', $channelHref) === 1;
+                    ?>
+                    <a
+                        class="contact-bottom-bar__item"
+                        href="<?= $escape($channelHref) ?>"
+                        <?= $channelIsWeb ? 'target="_blank" rel="noreferrer"' : '' ?>
+                    >
+                        <span class="contact-bottom-bar__icon" aria-hidden="true"><?= $channelIconSvg($channelType) ?></span>
+                        <span class="contact-bottom-bar__title"><?= $escape((string) ($channel['title'] ?? '')) ?></span>
+                        <?php $channelValue = trim((string) ($channel['value'] ?? '')); ?>
+                        <?php if ($channelValue !== ''): ?>
+                            <span class="contact-bottom-bar__value"><?= $escape($channelValue) ?></span>
+                        <?php endif; ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
         </div>
     <?php endif; ?>
 </div>
