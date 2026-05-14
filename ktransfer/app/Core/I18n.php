@@ -9,8 +9,8 @@ class I18n {
 
     private const TRANSLATIONS = [
         'es' => [
-            'title.home' => 'Express Transfer Cancun - Traslados Privados desde el Aeropuerto',
-            'meta.description' => 'Traslados privados desde el aeropuerto de Cancun hacia hoteles, Playa del Carmen y Riviera Maya con Express Transfer Cancun.',
+            'title.home' => '{brand} - Traslados Privados desde el Aeropuerto',
+            'meta.description' => 'Traslados privados desde el aeropuerto de Cancun hacia hoteles, Playa del Carmen y Riviera Maya con {brand}.',
             'meta.keywords' => 'traslado aeropuerto cancun, traslado privado, transportacion cancun',
             'nav.book_now' => 'Reservar',
             'nav.book' => 'Reservar',
@@ -41,7 +41,7 @@ class I18n {
             'search.children' => 'Niños',
             'search.currency' => 'Moneda',
             'search.submit' => 'Buscar traslado privado',
-            'welcome.eyebrow' => 'Bienvenido a Express Transfer Cancun',
+            'welcome.eyebrow' => 'Bienvenido a {brand}',
             'welcome.title' => 'Transportación privada pensada para llegadas al aeropuerto.',
             'welcome.p1' => 'Desde que aterriza tu vuelo, el traslado debe sentirse organizado, puntual y fácil de entender. Nuestra experiencia de reserva conecta pasajeros con unidades privadas, destinos de hotel y detalles claros antes del checkout.',
             'welcome.p2' => 'Ya sea que viajes a Cancun Hotel Zone, Costa Mujeres, Playa del Carmen o un resort en Riviera Maya, el sistema te ayuda a buscar destinos precargados y reservar con confianza.',

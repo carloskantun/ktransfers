@@ -10,6 +10,8 @@ $backUrl = trim((string) ($back_url ?? '/admin/bookings'));
 $isRoundTrip = (string) ($booking['trip_type'] ?? '') === 'ROUND_TRIP';
 
 $homeContent = (new HomeContentService())->getHomePageContent();
+$brandName = trim((string) ($brand_name ?? ($homeContent['brand_name'] ?? 'Express Transfers')));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 $voucherTheme = is_array($homeContent['voucher_theme'] ?? null) ? $homeContent['voucher_theme'] : [];
 $documentFooter = is_array($homeContent['document_footer'] ?? null) ? $homeContent['document_footer'] : [];
 $normalizeHex = static function ($value, string $fallback): string {
@@ -40,14 +42,10 @@ if ($footerLine1 === '') {
 
 $footerLine2 = trim((string) ($activeFooter['line_2'] ?? ''));
 if ($footerLine2 === '') {
-    $footerLine2 = 'info@expresstransfercancun.com | expresstransfercancun.com';
+    $footerLine2 = 'info@yourdomain.com | yourdomain.com';
 }
 
 $projectPublicRoot = dirname(__DIR__, 6) . '/public_html';
-
-if ($brandLogo === '' && is_file($projectPublicRoot . '/assets/expresslogo-300x122.png.webp')) {
-    $brandLogo = '/assets/expresslogo-300x122.png.webp';
-}
 
 $qrPath = trim((string) ($documentFooter['qr_image'] ?? ''));
 if ($qrPath === '' && is_file($projectPublicRoot . '/assets/qr_spectial.png')) {
@@ -458,9 +456,9 @@ $renderTrip = static function (array $trip) use ($h): void {
         <header class="voucher-head">
             <div>
                 <?php if ($brandLogo !== ''): ?>
-                    <img class="brand-logo" src="<?= $h($brandLogo) ?>" alt="Logo">
+                    <img class="brand-logo" src="<?= $h($brandLogo) ?>" alt="<?= $h($brandName) ?>">
                 <?php else: ?>
-                    <div class="brand-fallback">Express Transfer Cancun</div>
+                    <div class="brand-fallback"><?= $h($brandName) ?></div>
                 <?php endif; ?>
             </div>
             <div class="title-box">

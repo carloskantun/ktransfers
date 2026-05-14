@@ -88,12 +88,12 @@ class HomeContentService {
                 'voucher' => [
                     'headline' => 'GRACIAS POR SU PREFERENCIA / THANK YOU FOR YOUR PREFERENCE',
                     'line_1' => 'Reservation phone: +52 998 756 4000 | +52 998 222 3778',
-                    'line_2' => 'info@expresstransfercancun.com | expresstransfercancun.com',
+                    'line_2' => 'info@yourdomain.com | yourdomain.com',
                 ],
                 'service_order' => [
                     'headline' => 'GRACIAS POR SU PREFERENCIA / THANK YOU FOR YOUR PREFERENCE',
                     'line_1' => 'Reservation phone: +52 998 756 4000 | +52 998 222 3778',
-                    'line_2' => 'info@expresstransfercancun.com | expresstransfercancun.com',
+                    'line_2' => 'info@yourdomain.com | yourdomain.com',
                 ],
                 'qr_image' => '',
             ],

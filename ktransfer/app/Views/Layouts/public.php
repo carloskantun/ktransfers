@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 use App\Services\HomeContentService;
 
-$title = $title ?? 'Express Transfer Cancun';
+$title = trim((string) ($title ?? ''));
 $content = $content ?? '';
 $pageStyles = $pageStyles ?? [];
 $pageScripts = $pageScripts ?? [];
@@ -34,14 +34,23 @@ if ($isHomeContent || $isHomeRequest) {
     ])));
 }
 
-$documentTitle = $isHomeContent || $isHomeRequest
-    ? $publicT('title.home', (string) $title)
-    : (string) $title;
-
 $homeContent = is_array($home_content ?? null) ? $home_content : [];
 if (empty($homeContent)) {
     $homeContent = (new HomeContentService())->getHomePageContent();
 }
+
+$brandName = trim((string) ($homeContent['brand_name'] ?? HomeContentService::defaultContent()['brand_name']));
+$brandName = $brandName !== '' ? $brandName : HomeContentService::defaultContent()['brand_name'];
+$title = $title !== '' ? $title : $brandName;
+
+$translateWithBrand = static function (string $key, string $fallback) use ($publicT, $brandName): string {
+    $translated = $publicT($key, $fallback);
+    return str_replace('{brand}', $brandName, (string) $translated);
+};
+
+$documentTitle = $isHomeContent || $isHomeRequest
+    ? $translateWithBrand('title.home', '{brand} - Private Airport Transfers')
+    : $title;
 
 $tracking = is_array($homeContent['tracking'] ?? null) ? $homeContent['tracking'] : [];
 $gtmContainerId = strtoupper(trim((string) ($tracking['gtm_container_id'] ?? '')));
@@ -132,8 +141,6 @@ $landingNightFooterBg = $normalizeHex($landingNight['footer_bg'] ?? '', '#071114
 $brandLogoDayUrl = is_string($brandLogoDayPath) && $brandLogoDayPath !== '' ? $assetVersion($brandLogoDayPath) : '';
 $brandLogoNightUrl = is_string($brandLogoNightPath) && $brandLogoNightPath !== '' ? $assetVersion($brandLogoNightPath) : '';
 $brandLogoDefaultUrl = is_string($brandLogoPath) && $brandLogoPath !== '' ? $assetVersion($brandLogoPath) : '';
-$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
-$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 ?>
 <!doctype html>
 <html lang="<?= htmlspecialchars($publicLocale, ENT_QUOTES, 'UTF-8') ?>">
@@ -141,7 +148,7 @@ $brandName = $brandName !== '' ? $brandName : 'Express Transfers';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($documentTitle, ENT_QUOTES, 'UTF-8') ?></title>
-    <meta name="description" content="<?= htmlspecialchars($publicT('meta.description', 'Private airport transfers in Cancun, Playa del Carmen & Riviera Maya. Luxury transportation with Express Transfer Cancun.'), ENT_QUOTES, 'UTF-8') ?>">
+    <meta name="description" content="<?= htmlspecialchars($translateWithBrand('meta.description', 'Private airport transfers in Cancun, Playa del Carmen & Riviera Maya. Luxury transportation with {brand}.'), ENT_QUOTES, 'UTF-8') ?>">
     <meta name="keywords" content="<?= htmlspecialchars($publicT('meta.keywords', 'airport transfer cancun, private transfer, cancun transportation'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars($assetVersion('/assets/design-base.css'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars($assetVersion('/assets/app.css'), ENT_QUOTES, 'UTF-8') ?>">

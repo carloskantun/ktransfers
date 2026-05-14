@@ -139,6 +139,7 @@ class BookingsController {
             'bookings' => $this->loadFilteredBookings($db, $filters, $this->isAgencyScope()),
             'filters' => $filters,
             'brand_logo' => $this->resolveBrandLogoPath(),
+            'brand_name' => $this->resolveBrandName(),
         ], null);
     }
 
@@ -1139,6 +1140,7 @@ class BookingsController {
             'booking' => $booking,
             'document_type' => 'service_order',
             'brand_logo' => $this->resolveBrandLogoPath(),
+            'brand_name' => $this->resolveBrandName(),
         ], null);
     }
 
@@ -1160,6 +1162,7 @@ class BookingsController {
             'booking' => $booking,
             'document_type' => 'voucher',
             'brand_logo' => $this->resolveBrandLogoPath(),
+            'brand_name' => $this->resolveBrandName(),
         ], null);
     }
 
@@ -2625,6 +2628,14 @@ class BookingsController {
         }
 
         return $candidate;
+    }
+
+    private function resolveBrandName(): string
+    {
+        $homeContent = (new HomeContentService())->getHomePageContent();
+        $brandName = trim((string) ($homeContent['brand_name'] ?? HomeContentService::defaultContent()['brand_name']));
+
+        return $brandName !== '' ? $brandName : HomeContentService::defaultContent()['brand_name'];
     }
 
     private function buildVehicleRecommendation(int $totalPax, ?array $serviceType, array $vehicles): ?array

@@ -252,6 +252,7 @@ class OperationsAgendaController {
             'selected_status' => $data['selected_status'],
             'selected_operator_id' => $data['selected_operator_id'],
             'brand_logo' => $this->resolveBrandLogoPath(),
+            'brand_name' => $this->resolveBrandName(),
             'export_query' => $this->buildAgendaQuery($data),
         ], null);
     }
@@ -846,6 +847,14 @@ class OperationsAgendaController {
         }
 
         return $candidate;
+    }
+
+    private function resolveBrandName(): string
+    {
+        $homeContent = (new HomeContentService())->getHomePageContent();
+        $brandName = trim((string) ($homeContent['brand_name'] ?? HomeContentService::defaultContent()['brand_name']));
+
+        return $brandName !== '' ? $brandName : HomeContentService::defaultContent()['brand_name'];
     }
 
     public static function defaultAirportLabel(): string

@@ -5,6 +5,8 @@ $agendaItems = $agenda_items ?? [];
 $startDate = (string) ($start_date ?? '');
 $endDate = (string) ($end_date ?? '');
 $brandLogo = trim((string) ($brand_logo ?? ''));
+$brandName = trim((string) ($brand_name ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 $exportQuery = (string) ($export_query ?? '');
 $defaultAirportLabel = \App\Http\Controllers\Admin\OperationsAgendaController::defaultAirportLabel();
 
@@ -191,9 +193,9 @@ $resolveOperationLabel = static function (array $item): string {
         <header class="sheet-head">
             <div>
                 <?php if ($brandLogo !== ''): ?>
-                    <img class="brand-logo" src="<?= htmlspecialchars($brandLogo, ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
+                    <img class="brand-logo" src="<?= htmlspecialchars($brandLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?>">
                 <?php else: ?>
-                    <div class="brand-fallback">Express Transfer Cancun</div>
+                    <div class="brand-fallback"><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?></div>
                 <?php endif; ?>
             </div>
             <div class="range-box">

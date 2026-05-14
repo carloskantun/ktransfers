@@ -133,6 +133,11 @@ class HomeContentController
     {
         $errors = [];
 
+        $brandName = trim((string) ($form['brand_name'] ?? ''));
+        if ($brandName === '') {
+            $errors['brand_name'] = 'El nombre de marca es requerido.';
+        }
+
         if (!in_array($form['home_theme'] ?? '', ['day', 'night'], true)) {
             $errors['home_theme'] = 'Selecciona una version visual valida.';
         }
@@ -248,6 +253,7 @@ class HomeContentController
         return [
             'brand_logo' => (string) $form['brand_logo'],
             'brand_logo_light' => (string) $form['brand_logo_light'],
+            'brand_name' => trim((string) $form['brand_name']),
             'home_theme' => (string) $form['home_theme'],
             'booking_code_prefix' => (string) $form['booking_code_prefix'],
             'hero_images' => $this->normalizeHeroImages($form['hero_images'] ?? []),

@@ -4,6 +4,8 @@ declare(strict_types=1);
 $bookings = isset($bookings) && is_array($bookings) ? $bookings : [];
 $filters = isset($filters) && is_array($filters) ? $filters : [];
 $brandLogo = trim((string) ($brand_logo ?? ''));
+$brandName = trim((string) ($brand_name ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 $dateFrom = (string) ($filters['date_from'] ?? '');
 $dateTo = (string) ($filters['date_to'] ?? '');
 $rangeLabel = ($dateFrom !== '' || $dateTo !== '') ? trim($dateFrom . ' a ' . $dateTo) : 'Todas las fechas filtradas';
@@ -104,9 +106,9 @@ $paymentStatusLabels = \App\Core\StatusCatalog::paymentMap(true);
         <header class="sheet-head">
             <div>
                 <?php if ($brandLogo !== ''): ?>
-                    <img class="brand-logo" src="<?= htmlspecialchars($brandLogo, ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
+                    <img class="brand-logo" src="<?= htmlspecialchars($brandLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?>">
                 <?php else: ?>
-                    <div class="brand-fallback">Express Transfer Cancun</div>
+                    <div class="brand-fallback"><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?></div>
                 <?php endif; ?>
             </div>
             <div class="range-box">

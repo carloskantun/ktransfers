@@ -7,6 +7,8 @@ $currencies = $currencies ?? [];
 $featuredDestinations = $featured_destinations ?? [];
 $homeContent = $home_content ?? [];
 $error = $error ?? null;
+$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
 
 $badges = is_array($homeContent['badges'] ?? null) ? $homeContent['badges'] : [];
 $heroSlides = is_array($homeContent['hero_slides'] ?? null) ? $homeContent['hero_slides'] : [];
@@ -124,7 +126,7 @@ $showcaseImages = [
             <div class="hero-content">
                 <div class="hero-layout">
                     <div class="hero-main">
-                        <div class="hero-kicker">Express Transfer Cancun</div>
+                        <div class="hero-kicker"><?= $escape($brandName) ?></div>
                         <h1><?= $escape($truncate((string) ($homeContent['hero_title'] ?? 'Private Cancun airport transfers'), 64)) ?></h1>
                         <p class="hero-summary"><?= $escape($truncate((string) ($homeContent['hero_subtitle'] ?? 'Book reliable private transportation with a simple premium experience.'), 120)) ?></p>
 

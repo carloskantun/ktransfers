@@ -21,6 +21,8 @@ class SearchController {
         $error = null;
         $setupRequired = false;
         $homeContent = $this->loadHomeContent();
+        $brandName = trim((string) ($homeContent['brand_name'] ?? HomeContentService::defaultContent()['brand_name']));
+        $brandName = $brandName !== '' ? $brandName : HomeContentService::defaultContent()['brand_name'];
 
         try {
             $db = DB::connection();
@@ -51,7 +53,7 @@ class SearchController {
         }
 
         return Response::view('public/home', [
-            'title' => 'Express Transfer Cancun - Private Airport Transfers',
+            'title' => $brandName . ' - Private Airport Transfers',
             'csrf_token' => Csrf::token(),
             'currencies' => $currencies,
             'zones' => $zones,

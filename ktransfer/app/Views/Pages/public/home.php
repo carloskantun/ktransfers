@@ -14,6 +14,13 @@ $sections = is_array($homeContent['sections'] ?? null) ? $homeContent['sections'
 $publicLayoutMode = 'immersive';
 $publicT = is_callable($public_t ?? null) ? $public_t : static fn (string $key, string $fallback): string => $fallback;
 $publicLocale = in_array((string) ($public_locale ?? 'en'), ['en', 'es'], true) ? (string) $public_locale : 'en';
+$brandName = trim((string) ($homeContent['brand_name'] ?? 'Express Transfers'));
+$brandName = $brandName !== '' ? $brandName : 'Express Transfers';
+
+$translateWithBrand = static function (string $key, string $fallback) use ($publicT, $brandName): string {
+    $translated = $publicT($key, $fallback);
+    return str_replace('{brand}', $brandName, (string) $translated);
+};
 
 $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $truncate = static function (string $text, int $limit): string {
@@ -309,7 +316,7 @@ $showcaseImages = [
     <section class="lux-section lux-welcome" id="experience">
         <div class="lux-welcome__image" aria-hidden="true"></div>
         <div class="lux-welcome__copy">
-            <span class="lux-eyebrow"><?= $escape($publicT('welcome.eyebrow', 'Welcome to Express Transfer Cancun')) ?></span>
+            <span class="lux-eyebrow"><?= $escape($translateWithBrand('welcome.eyebrow', 'Welcome to {brand}')) ?></span>
             <h2><?= $escape($publicT('welcome.title', 'Private transportation designed for airport arrivals.')) ?></h2>
             <p><?= $escape($publicT('welcome.p1', 'From the moment your flight lands, your transfer should feel organized, punctual and clear.')) ?></p>
             <div class="lux-stat-row">

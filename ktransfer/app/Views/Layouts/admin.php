@@ -18,9 +18,6 @@ $can = static function (string $permissionCode): bool {
 $projectRoot = dirname(__DIR__, 5);
 $publicRoot = $projectRoot . '/public_html';
 $adminLogoCandidates = [
-    '/assets/expresslogo-300X200.png.webp',
-    '/assets/express-logo.svg',
-    '/assets/express-logo.png',
     '/assets/logo.svg',
     '/assets/logo.png',
 ];
