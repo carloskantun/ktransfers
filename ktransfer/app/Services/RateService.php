@@ -22,6 +22,26 @@ class RateService
         string $currencyCode,
         string $tripType
     ): array {
+        $zoneId = $this->resolveZoneId($placeId);
+        if ($zoneId === null) {
+            return [
+                'zone_id' => null,
+                'pax_range_id' => null,
+                'pax_label' => null,
+                'options' => [],
+            ];
+        }
+
+        return $this->quoteForZone($zoneId, $adults, $children, $currencyCode, $tripType);
+    }
+
+    public function quoteForZone(
+        int $zoneId,
+        int $adults,
+        int $children,
+        string $currencyCode,
+        string $tripType
+    ): array {
         $totalPax = $adults + $children;
         if ($totalPax <= 0) {
             return [
@@ -32,8 +52,7 @@ class RateService
             ];
         }
 
-        $zoneId = $this->resolveZoneId($placeId);
-        if ($zoneId === null) {
+        if ($zoneId <= 0) {
             return [
                 'zone_id' => null,
                 'pax_range_id' => null,

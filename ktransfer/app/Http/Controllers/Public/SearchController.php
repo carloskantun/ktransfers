@@ -88,28 +88,53 @@ class SearchController {
 
         try {
             $db = DB::connection();
-            $sql = 'SELECT p.id, p.name, p.type, p.zone_id, z.name_es AS zone_name
-                    FROM places p
-                    INNER JOIN zones z ON z.id = p.zone_id
-                    WHERE p.is_active = 1
-                      AND z.is_active = 1';
-            $params = [];
+            try {
+                $sql = 'SELECT p.id, p.name, p.address, p.type, p.zone_id, z.name_es AS zone_name
+                        FROM places p
+                        INNER JOIN zones z ON z.id = p.zone_id
+                        WHERE p.is_active = 1
+                          AND z.is_active = 1';
+                $params = [];
 
-            if ($q !== '') {
-                $sql .= ' AND p.name LIKE :q';
-                $params['q'] = '%' . $q . '%';
+                if ($q !== '') {
+                    $sql .= ' AND (p.name LIKE :q OR p.address LIKE :q)';
+                    $params['q'] = '%' . $q . '%';
+                }
+
+                if ($zoneId !== null) {
+                    $sql .= ' AND p.zone_id = :zone_id';
+                    $params['zone_id'] = $zoneId;
+                }
+
+                $sql .= ' ORDER BY p.name ASC LIMIT 20';
+
+                $stmt = $db->prepare($sql);
+                $stmt->execute($params);
+                $items = $stmt->fetchAll();
+            } catch (\Throwable) {
+                $sql = 'SELECT p.id, p.name, "" AS address, p.type, p.zone_id, z.name_es AS zone_name
+                        FROM places p
+                        INNER JOIN zones z ON z.id = p.zone_id
+                        WHERE p.is_active = 1
+                          AND z.is_active = 1';
+                $params = [];
+
+                if ($q !== '') {
+                    $sql .= ' AND p.name LIKE :q';
+                    $params['q'] = '%' . $q . '%';
+                }
+
+                if ($zoneId !== null) {
+                    $sql .= ' AND p.zone_id = :zone_id';
+                    $params['zone_id'] = $zoneId;
+                }
+
+                $sql .= ' ORDER BY p.name ASC LIMIT 20';
+
+                $stmt = $db->prepare($sql);
+                $stmt->execute($params);
+                $items = $stmt->fetchAll();
             }
-
-            if ($zoneId !== null) {
-                $sql .= ' AND p.zone_id = :zone_id';
-                $params['zone_id'] = $zoneId;
-            }
-
-            $sql .= ' ORDER BY p.name ASC LIMIT 20';
-
-            $stmt = $db->prepare($sql);
-            $stmt->execute($params);
-            $items = $stmt->fetchAll();
         } catch (\Throwable) {
             return Response::json(['items' => [], 'error' => 'places_query_failed'], 500);
         }

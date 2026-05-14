@@ -22,7 +22,7 @@ class PlacesController {
         $params = [];
 
         if ($search !== '') {
-            $where[] = 'p.name LIKE :search';
+            $where[] = '(p.name LIKE :search OR p.address LIKE :search)';
             $params['search'] = '%' . $search . '%';
         }
 
@@ -56,7 +56,7 @@ class PlacesController {
         $offset = ($page - 1) * $perPage;
 
         $stmt = $db->prepare(" 
-            SELECT p.id, p.name, p.type, p.city, p.is_active, z.name_es AS zone_name
+            SELECT p.id, p.name, p.address, p.type, p.city, p.is_active, z.name_es AS zone_name
             FROM places p
             INNER JOIN zones z ON z.id = p.zone_id
             {$whereSql}
@@ -108,7 +108,7 @@ class PlacesController {
         $whereSql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
         $stmt = $db->prepare("
-            SELECT p.id, p.name, p.type, p.city, p.is_active, z.name_es AS zone_name
+            SELECT p.id, p.name, p.address, p.type, p.city, p.is_active, z.name_es AS zone_name
             FROM places p
             INNER JOIN zones z ON z.id = p.zone_id
             {$whereSql}
@@ -123,11 +123,12 @@ class PlacesController {
         if ($handle === false) {
             $csv = '';
         } else {
-            fputcsv($handle, ['ID', 'Nombre', 'Zona', 'Tipo', 'Ciudad', 'Activa']);
+            fputcsv($handle, ['ID', 'Nombre', 'Direccion', 'Zona', 'Tipo', 'Ciudad', 'Activa']);
             foreach ($stmt->fetchAll() as $place) {
                 fputcsv($handle, [
                     (string) ($place['id'] ?? ''),
                     (string) ($place['name'] ?? ''),
+                    (string) ($place['address'] ?? ''),
                     (string) ($place['zone_name'] ?? ''),
                     (string) ($place['type'] ?? ''),
                     (string) ($place['city'] ?? ''),
@@ -157,7 +158,7 @@ class PlacesController {
                 'csrf_token' => Csrf::token(),
                 'zones' => $zones,
                 'errors' => [],
-                'form' => ['zone_id' => '', 'type' => 'HOTEL', 'name' => '', 'city' => ''],
+                'form' => ['zone_id' => '', 'type' => 'HOTEL', 'name' => '', 'address' => '', 'city' => ''],
             ], 'admin');
         }
 
@@ -169,10 +170,27 @@ class PlacesController {
             'zone_id' => trim((string) $request->post('zone_id', '')),
             'type' => strtoupper(trim((string) $request->post('type', 'HOTEL'))),
             'name' => trim((string) $request->post('name', '')),
+            'address' => trim((string) $request->post('address', '')),
             'city' => trim((string) $request->post('city', '')),
         ];
 
-        $errors = Validator::required($form, ['zone_id', 'type', 'name']);
+        if ($form['name'] === '' && $form['address'] !== '') {
+            $form['name'] = $form['address'];
+        }
+
+        $errors = Validator::required($form, ['zone_id', 'type']);
+        if (!in_array($form['type'], ['HOTEL', 'AIRBNB', 'POINT'], true)) {
+            $errors['type'] = 'Tipo inválido.';
+        }
+        if ($form['type'] === 'HOTEL' && $form['name'] === '') {
+            $errors['name'] = 'Nombre requerido.';
+        }
+        if (in_array($form['type'], ['AIRBNB', 'POINT'], true) && $form['address'] === '') {
+            $errors['address'] = 'La direccion es requerida para Airbnb y puntos.';
+        }
+        if ($form['name'] === '') {
+            $errors['name'] = 'Nombre o referencia requerido.';
+        }
         if (!empty($errors)) {
             return Response::view('admin/catalog/places/create', [
                 'title' => 'Nuevo lugar',
@@ -184,13 +202,14 @@ class PlacesController {
         }
 
         $stmt = $db->prepare(
-            'INSERT INTO places (zone_id, type, name, city, created_at) VALUES (:zone_id, :type, :name, :city, NOW())'
+            'INSERT INTO places (zone_id, type, name, address, city, created_at) VALUES (:zone_id, :type, :name, :address, :city, NOW())'
         );
         $stmt->execute([
             'zone_id' => (int) $form['zone_id'],
             'type' => $form['type'],
             'name' => $form['name'],
-            'city' => $form['city'],
+            'address' => $form['address'] !== '' ? $form['address'] : null,
+            'city' => $form['city'] !== '' ? $form['city'] : null,
         ]);
 
         return Response::redirect('/admin/catalog/places');
@@ -207,7 +226,7 @@ class PlacesController {
         $zonesStmt = $db->query('SELECT id, name_es FROM zones WHERE is_active = 1 ORDER BY name_es ASC');
         $zones = $zonesStmt->fetchAll();
 
-        $placeStmt = $db->prepare('SELECT id, zone_id, type, name, city, is_active FROM places WHERE id = :id LIMIT 1');
+        $placeStmt = $db->prepare('SELECT id, zone_id, type, name, address, city, is_active FROM places WHERE id = :id LIMIT 1');
         $placeStmt->execute(['id' => $id]);
         $place = $placeStmt->fetch();
 
@@ -226,6 +245,7 @@ class PlacesController {
                     'zone_id' => (string) $place['zone_id'],
                     'type' => (string) $place['type'],
                     'name' => (string) $place['name'],
+                    'address' => (string) ($place['address'] ?? ''),
                     'city' => (string) ($place['city'] ?? ''),
                     'is_active' => (string) $place['is_active'],
                 ],
@@ -241,13 +261,27 @@ class PlacesController {
             'zone_id' => trim((string) $request->post('zone_id', '')),
             'type' => strtoupper(trim((string) $request->post('type', 'HOTEL'))),
             'name' => trim((string) $request->post('name', '')),
+            'address' => trim((string) $request->post('address', '')),
             'city' => trim((string) $request->post('city', '')),
             'is_active' => $request->post('is_active') !== null ? 1 : 0,
         ];
 
-        $errors = Validator::required($form, ['zone_id', 'type', 'name']);
+        if ($form['name'] === '' && $form['address'] !== '') {
+            $form['name'] = $form['address'];
+        }
+
+        $errors = Validator::required($form, ['zone_id', 'type']);
         if (!in_array($form['type'], ['HOTEL', 'AIRBNB', 'POINT'], true)) {
             $errors['type'] = 'Tipo inválido.';
+        }
+        if ($form['type'] === 'HOTEL' && $form['name'] === '') {
+            $errors['name'] = 'Nombre requerido.';
+        }
+        if (in_array($form['type'], ['AIRBNB', 'POINT'], true) && $form['address'] === '') {
+            $errors['address'] = 'La direccion es requerida para Airbnb y puntos.';
+        }
+        if ($form['name'] === '') {
+            $errors['name'] = 'Nombre o referencia requerido.';
         }
 
         if (!empty($errors)) {
@@ -262,7 +296,7 @@ class PlacesController {
 
         $updateStmt = $db->prepare(
             'UPDATE places
-             SET zone_id = :zone_id, type = :type, name = :name, city = :city, is_active = :is_active
+             SET zone_id = :zone_id, type = :type, name = :name, address = :address, city = :city, is_active = :is_active
              WHERE id = :id'
         );
         $updateStmt->execute([
@@ -270,7 +304,8 @@ class PlacesController {
             'zone_id' => (int) $form['zone_id'],
             'type' => $form['type'],
             'name' => $form['name'],
-            'city' => $form['city'],
+            'address' => $form['address'] !== '' ? $form['address'] : null,
+            'city' => $form['city'] !== '' ? $form['city'] : null,
             'is_active' => $form['is_active'],
         ]);
 

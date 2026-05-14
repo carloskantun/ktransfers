@@ -163,13 +163,7 @@ class BookingsController {
         $zonesStmt = $db->query('SELECT id, name_es FROM zones WHERE is_active = 1 ORDER BY sort_order ASC, name_es ASC');
         $zones = $zonesStmt->fetchAll();
 
-        $allPlacesStmt = $db->query(
-            'SELECT id, zone_id, name, type
-             FROM places
-             WHERE is_active = 1
-             ORDER BY zone_id ASC, name ASC'
-        );
-        $allPlaces = $allPlacesStmt->fetchAll();
+        $allPlaces = $this->loadPlacesCatalog($db);
 
         $operators = $this->loadAssignableOperators($db);
         $providers = $this->loadProviders($db);
@@ -191,6 +185,12 @@ class BookingsController {
                 'zone_name' => '',
                 'place_id' => '',
                 'place_query' => '',
+                'place_mode' => 'EXISTING',
+                'new_place_type' => 'HOTEL',
+                'new_place_name' => '',
+                'new_place_address' => '',
+                'new_place_city' => '',
+                'new_place_zone_id' => '',
                 'origin_query' => '',
                 'agency_name' => $isAgencyScope ? $currentAgencyProviderName : '',
                 'agency_provider_id' => $isAgencyScope && $currentAgencyProviderId !== null ? (string) $currentAgencyProviderId : '',
@@ -259,6 +259,12 @@ class BookingsController {
             'zone_name' => trim((string) $request->post('zone_name', '')),
             'place_id' => trim((string) $request->post('place_id', '')),
             'place_query' => trim((string) $request->post('place_query', '')),
+            'place_mode' => strtoupper(trim((string) $request->post('place_mode', 'EXISTING'))),
+            'new_place_type' => strtoupper(trim((string) $request->post('new_place_type', 'HOTEL'))),
+            'new_place_name' => trim((string) $request->post('new_place_name', '')),
+            'new_place_address' => trim((string) $request->post('new_place_address', '')),
+            'new_place_city' => trim((string) $request->post('new_place_city', '')),
+            'new_place_zone_id' => trim((string) $request->post('new_place_zone_id', '')),
             'origin_query' => trim((string) $request->post('origin_query', '')),
             'agency_name' => trim((string) $request->post('agency_name', '')),
             'agency_provider_id' => trim((string) $request->post('agency_provider_id', '')),
@@ -349,7 +355,12 @@ class BookingsController {
             $errors['service_type_id'] = 'Servicio invalido.';
         }
 
-        if (!ctype_digit($form['place_id']) || (int) $form['place_id'] <= 0) {
+        if (!in_array($form['place_mode'], ['EXISTING', 'NEW'], true)) {
+            $errors['place_mode'] = 'Modo de lugar invalido.';
+            $form['place_mode'] = 'EXISTING';
+        }
+
+        if ($form['place_mode'] === 'EXISTING' && (!ctype_digit($form['place_id']) || (int) $form['place_id'] <= 0)) {
             $errors['place_id'] = 'Place invalido.';
         }
 
@@ -458,7 +469,42 @@ class BookingsController {
 
         $placeName = null;
 
-        if ($placeId > 0) {
+        if ($form['place_mode'] === 'NEW') {
+            if (!in_array($form['new_place_type'], ['HOTEL', 'AIRBNB', 'POINT'], true)) {
+                $errors['new_place_type'] = 'Tipo de lugar invalido.';
+            }
+
+            $newPlaceZoneId = ctype_digit($form['new_place_zone_id']) ? (int) $form['new_place_zone_id'] : 0;
+            if ($newPlaceZoneId <= 0 || !$this->entityExists($zones, $newPlaceZoneId)) {
+                $errors['new_place_zone_id'] = 'Zona del nuevo lugar invalida.';
+            } else {
+                $zoneId = $newPlaceZoneId;
+                $form['zone_id'] = (string) $zoneId;
+                foreach ($zones as $zone) {
+                    if ((int) ($zone['id'] ?? 0) === $zoneId) {
+                        $form['zone_name'] = (string) ($zone['name_es'] ?? '');
+                        break;
+                    }
+                }
+            }
+
+            if ($form['new_place_type'] === 'HOTEL' && $form['new_place_name'] === '') {
+                $errors['new_place_name'] = 'Nombre de hotel requerido.';
+            }
+            if (in_array($form['new_place_type'], ['AIRBNB', 'POINT'], true) && $form['new_place_address'] === '') {
+                $errors['new_place_address'] = 'Direccion requerida para Airbnb y punto.';
+            }
+            if ($form['new_place_name'] === '' && $form['new_place_address'] !== '') {
+                $form['new_place_name'] = $form['new_place_address'];
+            }
+            if ($form['new_place_name'] === '') {
+                $errors['new_place_name'] = 'Nombre o referencia del nuevo lugar requerido.';
+            }
+
+            $placeName = $form['new_place_name'];
+            $form['destination_name'] = $placeName;
+            $form['place_query'] = $placeName;
+        } elseif ($placeId > 0) {
             $placeCheckStmt = $db->prepare(
                 'SELECT p.id, p.zone_id, p.name, z.name_es AS zone_name
                  FROM places p
@@ -568,6 +614,30 @@ class BookingsController {
         }
 
         $totalPax = $adults + $children;
+
+        if ($form['place_mode'] === 'NEW' && empty($errors)) {
+            $newPlace = $this->findOrCreatePlace(
+                $db,
+                $zoneId,
+                $form['new_place_type'],
+                $form['new_place_name'],
+                $form['new_place_address'],
+                $form['new_place_city']
+            );
+
+            if ($newPlace === null) {
+                $errors['new_place_name'] = 'No se pudo crear el nuevo lugar.';
+            } else {
+                $placeId = (int) ($newPlace['id'] ?? 0);
+                $placeName = (string) ($newPlace['name'] ?? $form['new_place_name']);
+                $zoneId = (int) ($newPlace['zone_id'] ?? $zoneId);
+                $form['place_id'] = (string) $placeId;
+                $form['zone_id'] = (string) $zoneId;
+                $form['zone_name'] = (string) ($newPlace['zone_name'] ?? $form['zone_name']);
+                $form['place_query'] = $placeName;
+                $form['destination_name'] = $placeName;
+            }
+        }
 
         if ($isAgencyScope && empty($errors)) {
             $systemPrice = $this->resolveSystemPrice(
@@ -852,6 +922,7 @@ class BookingsController {
     public function quote(Request $request): Response
     {
         $placeId = (int) $request->query('place_id', 0);
+        $zoneId = (int) $request->query('zone_id', 0);
         $adults = (int) $request->query('adults', 1);
         $children = (int) $request->query('children', 0);
         $currencyCode = strtoupper(trim((string) $request->query('currency_code', 'USD')));
@@ -859,7 +930,7 @@ class BookingsController {
         $serviceTypeId = (int) $request->query('service_type_id', 0);
 
         if (
-            $placeId <= 0
+            ($placeId <= 0 && $zoneId <= 0)
             || $adults < 1
             || $children < 0
             || !preg_match('/^[A-Z]{3}$/', $currencyCode)
@@ -880,7 +951,10 @@ class BookingsController {
         }
 
         try {
-            $quote = (new RateService())->quote($placeId, $adults, $children, $currencyCode, $tripType);
+            $rateService = new RateService();
+            $quote = $placeId > 0
+                ? $rateService->quote($placeId, $adults, $children, $currencyCode, $tripType)
+                : $rateService->quoteForZone($zoneId, $adults, $children, $currencyCode, $tripType);
         } catch (\Throwable) {
             return Response::json([
                 'ok' => false,
@@ -2139,6 +2213,151 @@ class BookingsController {
         }
 
         return false;
+    }
+
+    private function loadPlacesCatalog(\PDO $db): array
+    {
+        try {
+            $stmt = $db->query(
+                'SELECT p.id, p.zone_id, p.name, p.type, p.address, z.name_es AS zone_name
+                 FROM places p
+                 INNER JOIN zones z ON z.id = p.zone_id
+                 WHERE p.is_active = 1 AND z.is_active = 1
+                 ORDER BY z.name_es ASC, p.name ASC'
+            );
+            $rows = $stmt->fetchAll();
+
+            return is_array($rows) ? $rows : [];
+        } catch (\Throwable) {
+            $stmt = $db->query(
+                'SELECT p.id, p.zone_id, p.name, p.type, "" AS address, z.name_es AS zone_name
+                 FROM places p
+                 INNER JOIN zones z ON z.id = p.zone_id
+                 WHERE p.is_active = 1 AND z.is_active = 1
+                 ORDER BY z.name_es ASC, p.name ASC'
+            );
+            $rows = $stmt->fetchAll();
+
+            return is_array($rows) ? $rows : [];
+        }
+    }
+
+    private function findOrCreatePlace(
+        \PDO $db,
+        int $zoneId,
+        string $type,
+        string $name,
+        string $address,
+        string $city
+    ): ?array {
+        $name = trim($name);
+        $address = trim($address);
+        $city = trim($city);
+
+        if ($zoneId <= 0 || $name === '' || !in_array($type, ['HOTEL', 'AIRBNB', 'POINT'], true)) {
+            return null;
+        }
+
+        try {
+            $findStmt = $db->prepare(
+                'SELECT p.id, p.zone_id, p.name, p.address, z.name_es AS zone_name
+                 FROM places p
+                 INNER JOIN zones z ON z.id = p.zone_id
+                 WHERE p.zone_id = :zone_id
+                   AND (
+                        LOWER(TRIM(p.name)) = LOWER(TRIM(:name))
+                        OR (:address <> "" AND LOWER(TRIM(COALESCE(p.address, ""))) = LOWER(TRIM(:address_lookup)))
+                   )
+                 LIMIT 1'
+            );
+            $findStmt->execute([
+                'zone_id' => $zoneId,
+                'name' => $name,
+                'address' => $address,
+                'address_lookup' => $address,
+            ]);
+            $existing = $findStmt->fetch();
+
+            if ($existing) {
+                if ($address !== '' && trim((string) ($existing['address'] ?? '')) === '') {
+                    $updateStmt = $db->prepare('UPDATE places SET address = :address WHERE id = :id');
+                    $updateStmt->execute([
+                        'id' => (int) ($existing['id'] ?? 0),
+                        'address' => $address,
+                    ]);
+                    $existing['address'] = $address;
+                }
+
+                return $existing;
+            }
+
+            $insertStmt = $db->prepare(
+                'INSERT INTO places (zone_id, type, name, address, city, is_active, created_at)
+                 VALUES (:zone_id, :type, :name, :address, :city, 1, NOW())'
+            );
+            $insertStmt->execute([
+                'zone_id' => $zoneId,
+                'type' => $type,
+                'name' => $name,
+                'address' => $address !== '' ? $address : null,
+                'city' => $city !== '' ? $city : null,
+            ]);
+
+            $placeId = (int) $db->lastInsertId();
+            $loadStmt = $db->prepare(
+                'SELECT p.id, p.zone_id, p.name, p.address, z.name_es AS zone_name
+                 FROM places p
+                 INNER JOIN zones z ON z.id = p.zone_id
+                 WHERE p.id = :id
+                 LIMIT 1'
+            );
+            $loadStmt->execute(['id' => $placeId]);
+            $place = $loadStmt->fetch();
+
+            return $place ?: null;
+        } catch (\Throwable) {
+            $findStmt = $db->prepare(
+                'SELECT p.id, p.zone_id, p.name, "" AS address, z.name_es AS zone_name
+                 FROM places p
+                 INNER JOIN zones z ON z.id = p.zone_id
+                 WHERE p.zone_id = :zone_id
+                   AND LOWER(TRIM(p.name)) = LOWER(TRIM(:name))
+                 LIMIT 1'
+            );
+            $findStmt->execute([
+                'zone_id' => $zoneId,
+                'name' => $name,
+            ]);
+            $existing = $findStmt->fetch();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            $insertStmt = $db->prepare(
+                'INSERT INTO places (zone_id, type, name, city, is_active, created_at)
+                 VALUES (:zone_id, :type, :name, :city, 1, NOW())'
+            );
+            $insertStmt->execute([
+                'zone_id' => $zoneId,
+                'type' => $type,
+                'name' => $name,
+                'city' => $city !== '' ? $city : null,
+            ]);
+
+            $placeId = (int) $db->lastInsertId();
+            $loadStmt = $db->prepare(
+                'SELECT p.id, p.zone_id, p.name, "" AS address, z.name_es AS zone_name
+                 FROM places p
+                 INNER JOIN zones z ON z.id = p.zone_id
+                 WHERE p.id = :id
+                 LIMIT 1'
+            );
+            $loadStmt->execute(['id' => $placeId]);
+            $place = $loadStmt->fetch();
+
+            return $place ?: null;
+        }
     }
 
     private function resolveSystemPrice(

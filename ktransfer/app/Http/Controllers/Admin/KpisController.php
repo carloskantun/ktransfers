@@ -114,6 +114,49 @@ class KpisController {
         $topZonesStmt->execute();
         $topZones = $topZonesStmt->fetchAll();
 
+        $vehicleWhere = $bookingWhere;
+        $vehicleWhere[] = 'a.vehicle_id IS NOT NULL';
+        $vehicleWhereSql = 'WHERE ' . implode(' AND ', $vehicleWhere);
+
+        $topVehiclesStmt = $db->prepare("
+            SELECT
+                v.name AS vehicle_name,
+                v.max_pax,
+                COUNT(b.id) AS total
+            FROM bookings b
+            INNER JOIN assignments a ON a.booking_id = b.id
+            INNER JOIN vehicles v ON v.id = a.vehicle_id
+            {$vehicleWhereSql}
+            GROUP BY v.id, v.name, v.max_pax
+            ORDER BY total DESC, v.name ASC
+            LIMIT 5
+        ");
+        $this->bindParams($topVehiclesStmt, $bookingParams);
+        $topVehiclesStmt->execute();
+        $topVehicles = $topVehiclesStmt->fetchAll();
+
+        $topCapacitiesStmt = $db->prepare("
+            SELECT
+                bp.total_pax,
+                COUNT(b.id) AS total
+            FROM bookings b
+            INNER JOIN booking_passengers bp ON bp.booking_id = b.id
+            {$bookingWhereSql}
+            GROUP BY bp.total_pax
+            ORDER BY total DESC, bp.total_pax ASC
+            LIMIT 5
+        ");
+        $this->bindParams($topCapacitiesStmt, $bookingParams);
+        $topCapacitiesStmt->execute();
+        $topCapacities = $topCapacitiesStmt->fetchAll();
+
+        $mostRequestedCapacity = 0;
+        $mostRequestedCapacityBookings = 0;
+        if (!empty($topCapacities) && is_array($topCapacities[0] ?? null)) {
+            $mostRequestedCapacity = (int) ($topCapacities[0]['total_pax'] ?? 0);
+            $mostRequestedCapacityBookings = (int) ($topCapacities[0]['total'] ?? 0);
+        }
+
         $paidWhereSql = !empty($bookingWhere) ? $bookingWhereSql . " AND b.payment_status = 'PAID'" : "WHERE b.payment_status = 'PAID'";
         $unpaidWhereSql = !empty($bookingWhere) ? $bookingWhereSql . " AND b.payment_status IN ('UNPAID', 'PARTIAL')" : "WHERE b.payment_status IN ('UNPAID', 'PARTIAL')";
         $paidStmt = $db->prepare("SELECT COUNT(*) AS total FROM bookings b {$paidWhereSql}");
@@ -171,6 +214,10 @@ class KpisController {
             'revenue_by_currency' => $revenue,
             'no_shows' => $noShows,
             'top_zones' => $topZones,
+            'top_vehicles' => $topVehicles,
+            'top_capacities' => $topCapacities,
+            'most_requested_capacity' => $mostRequestedCapacity,
+            'most_requested_capacity_bookings' => $mostRequestedCapacityBookings,
             'paid_bookings' => $paidCount,
             'unpaid_bookings' => $unpaidCount,
             'agency_collected_bookings' => $agencyCollectedBookings,
@@ -253,6 +300,27 @@ class KpisController {
         fputcsv($handle, ['Zona', 'Total reservas']);
         foreach (($metrics['top_zones'] ?? []) as $row) {
             fputcsv($handle, [(string) ($row['zone_name'] ?? ''), (string) ($row['total'] ?? 0)]);
+        }
+
+        fputcsv($handle, []);
+        fputcsv($handle, ['Top vehiculos']);
+        fputcsv($handle, ['Vehiculo', 'Capacidad maxima', 'Total reservas']);
+        foreach (($metrics['top_vehicles'] ?? []) as $row) {
+            fputcsv($handle, [
+                (string) ($row['vehicle_name'] ?? ''),
+                (string) ($row['max_pax'] ?? ''),
+                (string) ($row['total'] ?? 0),
+            ]);
+        }
+
+        fputcsv($handle, []);
+        fputcsv($handle, ['Top capacidades reservadas']);
+        fputcsv($handle, ['Capacidad (pax)', 'Total reservas']);
+        foreach (($metrics['top_capacities'] ?? []) as $row) {
+            fputcsv($handle, [
+                (string) ($row['total_pax'] ?? 0),
+                (string) ($row['total'] ?? 0),
+            ]);
         }
 
         fputcsv($handle, []);

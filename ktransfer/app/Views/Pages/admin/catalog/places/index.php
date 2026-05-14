@@ -54,6 +54,7 @@ if ($selectedZoneId > 0) {
             <tr>
                 <th>ID</th>
                 <th>Nombre</th>
+                <th>Dirección</th>
                 <th>Zona</th>
                 <th>Tipo</th>
                 <th>Activa</th>
@@ -63,13 +64,14 @@ if ($selectedZoneId > 0) {
         <tbody>
             <?php if (empty($places)): ?>
             <tr>
-                <td class="admin-empty-row" colspan="6">No hay lugares registrados.</td>
+                <td class="admin-empty-row" colspan="7">No hay lugares registrados.</td>
             </tr>
             <?php endif; ?>
             <?php foreach ($places as $place): ?>
             <tr>
                 <td data-label="ID"><?= htmlspecialchars((string)($place['id'] ?? '')) ?></td>
                 <td data-label="Nombre"><?= htmlspecialchars($place['name'] ?? '') ?></td>
+                <td data-label="Dirección"><?= htmlspecialchars((string) ($place['address'] ?? '')) ?></td>
                 <td data-label="Zona"><?= htmlspecialchars($place['zone_name'] ?? '') ?></td>
                 <td data-label="Tipo"><?= htmlspecialchars($place['type'] ?? '') ?></td>
                 <td data-label="Activa"><?= (int)($place['is_active'] ?? 0) === 1 ? 'Sí' : 'No' ?></td>

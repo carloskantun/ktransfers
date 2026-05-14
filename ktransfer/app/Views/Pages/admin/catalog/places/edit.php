@@ -23,7 +23,7 @@ $zones = $zones ?? [];
 
         <div class="form-group">
             <label>Nombre</label>
-            <input type="text" name="name" value="<?= htmlspecialchars((string) ($form['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required>
+            <input type="text" name="name" value="<?= htmlspecialchars((string) ($form['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         </div>
 
         <div class="form-group">
@@ -45,6 +45,11 @@ $zones = $zones ?? [];
                 <option value="AIRBNB" <?= ($form['type'] ?? '') === 'AIRBNB' ? 'selected' : '' ?>>Airbnb</option>
                 <option value="POINT" <?= ($form['type'] ?? '') === 'POINT' ? 'selected' : '' ?>>Punto</option>
             </select>
+        </div>
+
+        <div class="form-group">
+            <label>Dirección</label>
+            <input type="text" name="address" value="<?= htmlspecialchars((string) ($form['address'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Opcional en hoteles; requerida en Airbnb y puntos">
         </div>
 
         <div class="form-group">

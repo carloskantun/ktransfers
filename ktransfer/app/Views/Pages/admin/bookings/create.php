@@ -14,10 +14,12 @@ $operators = $operators ?? [];
 $providers = $providers ?? [];
 $vehicles = $vehicles ?? [];
 $currencies = $currencies ?? [];
+$places = $places ?? [];
 $form = $form ?? [];
 $errors = $errors ?? [];
 $vehicleRecommendation = $vehicle_recommendation ?? null;
 $isAgencyScope = (bool) ($is_agency_scope ?? false);
+$isNewPlaceMode = strtoupper((string) ($form['place_mode'] ?? 'EXISTING')) === 'NEW';
 
 $totalPax = max(
     0,
@@ -48,6 +50,18 @@ foreach ($vehicles as $vehicle) {
         'code' => (string) ($vehicle['code'] ?? ''),
         'name' => (string) ($vehicle['name'] ?? ''),
         'max_pax' => (int) ($vehicle['max_pax'] ?? 0),
+    ];
+}
+
+$placesForJs = [];
+foreach ($places as $place) {
+    $placesForJs[] = [
+        'id' => (int) ($place['id'] ?? 0),
+        'zone_id' => (int) ($place['zone_id'] ?? 0),
+        'name' => (string) ($place['name'] ?? ''),
+        'type' => (string) ($place['type'] ?? ''),
+        'address' => (string) ($place['address'] ?? ''),
+        'zone_name' => (string) ($place['zone_name'] ?? ''),
     ];
 }
 
@@ -276,6 +290,42 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
         padding: 12px 14px;
         color: var(--muted);
     }
+    .places-list-create {
+        display: grid;
+        gap: 4px;
+        width: 100%;
+        border: 0;
+        background: #eef5ff;
+        color: #173b75;
+        padding: 12px 14px;
+        text-align: left;
+        cursor: pointer;
+        font-weight: 800;
+    }
+    .places-list-create span {
+        color: #506885;
+        font-size: 0.84rem;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+    .manual-inline-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--primary);
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .manual-inline-link.is-cancel {
+        color: #64748b;
+    }
+    .new-place-fields {
+        display: <?= $isNewPlaceMode ? 'block' : 'none' ?>;
+    }
     @media (max-width: 1180px) {
         .manual-booking-shell {
             grid-template-columns: 1fr;
@@ -470,7 +520,9 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                     <span class="manual-help">Aplica sobre todo a inter hotel o traslados entre puntos.</span>
                 </div>
 
-                <div class="form-group manual-span-6">
+                <input type="hidden" id="place_mode" name="place_mode" value="<?= $isNewPlaceMode ? 'NEW' : 'EXISTING' ?>">
+
+                <div class="form-group manual-span-6" id="destination_query_group" style="<?= $isNewPlaceMode ? 'display:none;' : '' ?>">
                     <label for="admin_place_query" id="destination_query_label">Hotel / destino</label>
                     <input
                         id="admin_place_query"
@@ -486,6 +538,63 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                     <input type="hidden" id="destination_name" name="destination_name" value="<?= htmlspecialchars((string) ($form['destination_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
                     <ul id="admin_places_suggestions" class="places-list"></ul>
                     <span class="manual-help" id="destination_query_help">Busca el hotel y selecciona una opcion del listado.</span>
+                    <button type="button" class="manual-inline-link" id="show_new_place_action">No esta en catalogo? Crear nuevo lugar</button>
+                </div>
+
+                <div class="form-group manual-span-12 new-place-fields">
+                    <button type="button" class="manual-inline-link is-cancel" id="cancel_new_place_action">Volver a buscar en catalogo</button>
+                </div>
+
+                <div class="form-group manual-span-3 new-place-fields">
+                    <label for="new_place_type">Tipo nuevo</label>
+                    <select id="new_place_type" name="new_place_type">
+                        <option value="HOTEL" <?= ($form['new_place_type'] ?? 'HOTEL') === 'HOTEL' ? 'selected' : '' ?>>Hotel</option>
+                        <option value="AIRBNB" <?= ($form['new_place_type'] ?? '') === 'AIRBNB' ? 'selected' : '' ?>>Airbnb</option>
+                        <option value="POINT" <?= ($form['new_place_type'] ?? '') === 'POINT' ? 'selected' : '' ?>>Punto</option>
+                    </select>
+                </div>
+
+                <div class="form-group manual-span-3 new-place-fields">
+                    <label for="new_place_zone_id">Zona</label>
+                    <select id="new_place_zone_id" name="new_place_zone_id">
+                        <option value="">Seleccionar zona</option>
+                        <?php foreach ($zones as $zone): ?>
+                            <?php $zoneId = (int) ($zone['id'] ?? 0); ?>
+                            <option value="<?= $zoneId ?>" <?= (int) ($form['new_place_zone_id'] ?? $form['zone_id'] ?? 0) === $zoneId ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) ($zone['name_es'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group manual-span-6 new-place-fields">
+                    <label for="new_place_name">Nombre o referencia</label>
+                    <input
+                        id="new_place_name"
+                        name="new_place_name"
+                        value="<?= htmlspecialchars((string) ($form['new_place_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        placeholder="Nombre de hotel, residencia o referencia"
+                    >
+                </div>
+
+                <div class="form-group manual-span-8 new-place-fields">
+                    <label for="new_place_address">Dirección</label>
+                    <input
+                        id="new_place_address"
+                        name="new_place_address"
+                        value="<?= htmlspecialchars((string) ($form['new_place_address'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        placeholder="Direccion, ubicacion catastral o referencia operativa"
+                    >
+                    <span class="manual-help" id="new_place_address_help">Opcional para hoteles; requerida para Airbnb y puntos.</span>
+                </div>
+
+                <div class="form-group manual-span-4 new-place-fields">
+                    <label for="new_place_city">Ciudad (opcional)</label>
+                    <input
+                        id="new_place_city"
+                        name="new_place_city"
+                        value="<?= htmlspecialchars((string) ($form['new_place_city'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                    >
                 </div>
 
                 <div class="form-group manual-span-6">
@@ -880,18 +989,30 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
     (function () {
         var serviceTypes = <?= json_encode($serviceTypesForJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         var vehicles = <?= json_encode($vehiclesForJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        var placesCatalog = <?= json_encode($placesForJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
         var operationType = document.getElementById('operation_type');
         var tripType = document.getElementById('trip_type');
         var directionGroup = document.getElementById('direction_group');
         var directionSelect = document.getElementById('direction');
+        var placeMode = document.getElementById('place_mode');
+        var destinationQueryGroup = document.getElementById('destination_query_group');
         var placeQuery = document.getElementById('admin_place_query');
         var placeIdInput = document.getElementById('place_id');
         var zoneIdInput = document.getElementById('zone_id');
         var zoneNameInput = document.getElementById('zone_name');
+        var newPlaceFields = Array.prototype.slice.call(document.querySelectorAll('.new-place-fields'));
+        var newPlaceType = document.getElementById('new_place_type');
+        var newPlaceName = document.getElementById('new_place_name');
+        var newPlaceAddress = document.getElementById('new_place_address');
+        var newPlaceAddressHelp = document.getElementById('new_place_address_help');
+        var newPlaceCity = document.getElementById('new_place_city');
+        var newPlaceZone = document.getElementById('new_place_zone_id');
         var suggestions = document.getElementById('admin_places_suggestions');
         var destinationNameInput = document.getElementById('destination_name');
         var destinationQueryLabel = document.getElementById('destination_query_label');
         var destinationQueryHelp = document.getElementById('destination_query_help');
+        var showNewPlaceAction = document.getElementById('show_new_place_action');
+        var cancelNewPlaceAction = document.getElementById('cancel_new_place_action');
         var originGroup = document.getElementById('origin_query_group');
         var originQuery = document.getElementById('origin_query');
         var originNameInput = document.getElementById('origin_name');
@@ -951,7 +1072,7 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
         var flightNumberInput = document.getElementById('flight_number');
         var bookingForm = document.querySelector('.manual-booking-form');
 
-        if (!operationType || !tripType || !directionGroup || !directionSelect || !placeQuery || !placeIdInput || !zoneIdInput || !zoneNameInput || !suggestions || !destinationNameInput || !originGroup || !originQuery || !originNameInput || !originSuggestions || !airlineInput || !airlineSuggestions || !arrivalGroup || !arrivalLabel || !departureGroup || !departureLabel || !modeSelect || !operatorGroup || !providerGroup || !vehicleSelect || !adultsInput || !childrenInput || !serviceTypeSelect || !currencySelect || !priceInput || !rateSuggestionTitle || !rateSuggestionText || !applyRateSuggestionButton || !recommendationLabel || !recommendationMeta || !recommendationNotes || !summaryOperation || !summaryCustomer || !summaryRoute || !summaryPax || !summaryVehicle) {
+        if (!operationType || !tripType || !directionGroup || !directionSelect || !placeMode || !destinationQueryGroup || !placeQuery || !placeIdInput || !zoneIdInput || !zoneNameInput || !newPlaceType || !newPlaceName || !newPlaceAddress || !newPlaceZone || !suggestions || !destinationNameInput || !originGroup || !originQuery || !originNameInput || !originSuggestions || !airlineInput || !airlineSuggestions || !arrivalGroup || !arrivalLabel || !departureGroup || !departureLabel || !vehicleSelect || !adultsInput || !childrenInput || !serviceTypeSelect || !currencySelect || !priceInput || !rateSuggestionTitle || !rateSuggestionText || !applyRateSuggestionButton || !recommendationLabel || !recommendationMeta || !recommendationNotes) {
             return;
         }
 
@@ -973,11 +1094,96 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
             listNode.style.display = 'block';
         }
 
+        function renderCreatePlaceAction(listNode, queryText) {
+            listNode.innerHTML = '';
+
+            var emptyLi = document.createElement('li');
+            emptyLi.className = 'places-list-empty';
+            emptyLi.textContent = 'No encontramos lugares con ese nombre.';
+            listNode.appendChild(emptyLi);
+
+            var createLi = document.createElement('li');
+            var createButton = document.createElement('button');
+            createButton.type = 'button';
+            createButton.className = 'places-list-create';
+            createButton.appendChild(document.createTextNode('Crear nuevo lugar'));
+            var createMeta = document.createElement('span');
+            createMeta.textContent = queryText;
+            createButton.appendChild(createMeta);
+            createButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                placeMode.value = 'NEW';
+                newPlaceType.value = operationType.value === 'INTERHOTEL' ? 'POINT' : 'AIRBNB';
+                newPlaceName.value = '';
+                newPlaceAddress.value = queryText;
+                syncPlaceModeUi();
+                closeList(listNode);
+                newPlaceZone.focus();
+                fetchRateSuggestion();
+                syncSummary();
+            });
+            createLi.appendChild(createButton);
+            listNode.appendChild(createLi);
+            listNode.style.display = 'block';
+        }
+
         function setupPlacesAutocomplete(config) {
             var queryInput = config.queryInput;
             var listNode = config.listNode;
             var onSelect = config.onSelect;
             var debounceTimer;
+
+            function localSearchItems(q) {
+                var normalized = q.toLowerCase();
+                return (Array.isArray(config.localItems) ? config.localItems : []).filter(function (item) {
+                    var name = String(item.name || '').toLowerCase();
+                    var address = String(item.address || '').toLowerCase();
+                    var zoneName = String(item.zone_name || '').toLowerCase();
+                    return name.indexOf(normalized) !== -1 || address.indexOf(normalized) !== -1 || zoneName.indexOf(normalized) !== -1;
+                }).slice(0, 20);
+            }
+
+            function renderItems(items) {
+                listNode.innerHTML = '';
+
+                if (items.length === 0) {
+                    if (config.onCreateNew) {
+                        renderCreatePlaceAction(listNode, queryInput.value.trim());
+                        return;
+                    }
+                    renderMessage(listNode, 'No encontramos lugares con ese nombre.');
+                    return;
+                }
+
+                items.forEach(function (item) {
+                    var li = document.createElement('li');
+                    var button = document.createElement('button');
+                    var title = document.createElement('strong');
+                    var subtitle = document.createElement('span');
+                    var detail = item.zone_name || '';
+
+                    if (item.address) {
+                        detail += detail !== '' ? ' - ' + item.address : item.address;
+                    }
+
+                    button.type = 'button';
+                    button.className = 'places-list-button';
+                    title.textContent = item.name;
+                    subtitle.textContent = detail;
+                    button.appendChild(title);
+                    button.appendChild(subtitle);
+                    button.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        onSelect(item);
+                        closeList(listNode);
+                        syncSummary();
+                    });
+                    li.appendChild(button);
+                    listNode.appendChild(li);
+                });
+
+                listNode.style.display = 'block';
+            }
 
             async function fetchPlaces() {
                 var q = queryInput.value.trim();
@@ -987,35 +1193,19 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                     return;
                 }
 
+                 if (Array.isArray(config.localItems) && config.localItems.length > 0) {
+                    renderItems(localSearchItems(q));
+                    return;
+                }
+
                 try {
                     var response = await fetch('/api/places?q=' + encodeURIComponent(q));
+                    if (!response.ok) {
+                        throw new Error('places_query_failed');
+                    }
                     var data = await response.json();
                     var items = Array.isArray(data.items) ? data.items : [];
-
-                    listNode.innerHTML = '';
-
-                    if (items.length === 0) {
-                        renderMessage(listNode, 'No encontramos lugares con ese nombre.');
-                        return;
-                    }
-
-                    items.forEach(function (item) {
-                        var li = document.createElement('li');
-                        var button = document.createElement('button');
-                        button.type = 'button';
-                        button.className = 'places-list-button';
-                        button.innerHTML = '<strong>' + item.name + '</strong><span>' + item.zone_name + '</span>';
-                        button.addEventListener('click', function (event) {
-                            event.preventDefault();
-                            onSelect(item);
-                            closeList(listNode);
-                            syncSummary();
-                        });
-                        li.appendChild(button);
-                        listNode.appendChild(li);
-                    });
-
-                    listNode.style.display = 'block';
+                    renderItems(items);
                 } catch (error) {
                     renderMessage(listNode, 'No se pudo consultar el catalogo de lugares.');
                 }
@@ -1176,13 +1366,18 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
             rateSuggestion = null;
             rateSuggestionTitle.textContent = 'Tarifa base pendiente';
             rateSuggestionText.textContent = message;
-            applyRateSuggestionButton.disabled = true;
+            if (applyRateSuggestionButton) {
+                applyRateSuggestionButton.disabled = true;
+            }
         }
 
         function fetchRateSuggestion() {
             clearTimeout(rateTimer);
             rateTimer = setTimeout(async function () {
                 var placeId = parseInt(placeIdInput.value || '0', 10);
+                var quoteZoneId = placeMode.value === 'NEW'
+                    ? parseInt(newPlaceZone.value || '0', 10)
+                    : parseInt(zoneIdInput.value || '0', 10);
                 var adults = parseInt(adultsInput.value || '0', 10);
                 var children = parseInt(childrenInput.value || '0', 10);
                 var serviceTypeId = parseInt(serviceTypeSelect.value || '0', 10);
@@ -1190,18 +1385,21 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                 var trip = tripType.value || 'ONE_WAY';
                 var requestId = ++rateRequestId;
 
-                if (!placeId || adults < 1 || children < 0 || !serviceTypeId) {
-                    setRateSuggestionPending('Selecciona hotel, pasajeros y servicio para consultar la tarifa base del sistema.');
+                if ((!placeId && !quoteZoneId) || adults < 1 || children < 0 || !serviceTypeId) {
+                    setRateSuggestionPending('Selecciona hotel o zona, pasajeros y servicio para consultar la tarifa base del sistema.');
                     return;
                 }
 
                 rateSuggestionTitle.textContent = 'Consultando tarifa base...';
                 rateSuggestionText.textContent = 'Buscando tarifa activa por zona, pax, moneda y servicio.';
-                applyRateSuggestionButton.disabled = true;
+                if (applyRateSuggestionButton) {
+                    applyRateSuggestionButton.disabled = true;
+                }
 
                 try {
                     var params = new URLSearchParams({
                         place_id: String(placeId),
+                        zone_id: String(quoteZoneId),
                         adults: String(adults),
                         children: String(children),
                         currency_code: currencyCode,
@@ -1221,7 +1419,9 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                         rateSuggestion = null;
                         rateSuggestionTitle.textContent = 'Sin tarifa base activa';
                         rateSuggestionText.textContent = data.message || 'No hay tarifa activa para esta combinacion.';
-                        applyRateSuggestionButton.disabled = true;
+                        if (applyRateSuggestionButton) {
+                            applyRateSuggestionButton.disabled = true;
+                        }
                         if (priceInput) {
                             priceInput.value = '0.00';
                         }
@@ -1233,7 +1433,9 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                     rateSuggestion = data;
                     rateSuggestionTitle.textContent = 'Tarifa base: ' + data.price + ' ' + data.currency_code;
                     rateSuggestionText.textContent = data.service_type_name + ' - ' + data.pax_label + '. En agencia, esta tarifa es la referencia minima para la tarifa de reporte.';
-                    applyRateSuggestionButton.disabled = false;
+                    if (applyRateSuggestionButton) {
+                        applyRateSuggestionButton.disabled = false;
+                    }
 
                     if (priceInput) {
                         priceInput.value = data.price;
@@ -1252,7 +1454,9 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                     rateSuggestion = null;
                     rateSuggestionTitle.textContent = 'No se pudo consultar tarifa';
                     rateSuggestionText.textContent = 'Revisa la conexion o captura el total manualmente.';
-                    applyRateSuggestionButton.disabled = true;
+                    if (applyRateSuggestionButton) {
+                        applyRateSuggestionButton.disabled = true;
+                    }
                 }
             }, 250);
         }
@@ -1260,7 +1464,7 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
         function syncOperationUi() {
             var isAirport = operationType.value === 'AIRPORT';
             var isRoundTrip = tripType.value === 'ROUND_TRIP';
-            var providerMode = modeSelect.value === 'PROVIDER';
+            var providerMode = modeSelect ? modeSelect.value === 'PROVIDER' : false;
 
             originGroup.style.display = isAirport ? 'none' : '';
             directionGroup.style.display = isAirport && !isRoundTrip ? '' : 'none';
@@ -1269,11 +1473,13 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                 field.style.display = isAirport ? '' : 'none';
             });
 
-            providerGroup.style.display = providerMode ? '' : 'none';
-            operatorGroup.style.display = providerMode ? 'none' : '';
-            if (providerMode) {
+            if (providerGroup && operatorGroup) {
+                providerGroup.style.display = providerMode ? '' : 'none';
+                operatorGroup.style.display = providerMode ? 'none' : '';
+            }
+            if (providerMode && operatorSelect) {
                 operatorSelect.value = '';
-            } else {
+            } else if (!providerMode && providerSelect) {
                 providerSelect.value = '';
             }
 
@@ -1309,6 +1515,50 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                 departureGroup.style.display = isRoundTrip ? '' : 'none';
                 arrivalLabel.textContent = isRoundTrip ? 'Ida' : 'Servicio';
                 departureLabel.textContent = 'Regreso';
+            }
+        }
+
+        function syncPlaceModeUi() {
+            var isNewPlace = placeMode.value === 'NEW';
+            newPlaceFields.forEach(function (field) {
+                field.style.display = isNewPlace ? 'block' : 'none';
+            });
+            destinationQueryGroup.style.display = isNewPlace ? 'none' : 'block';
+
+            placeQuery.required = !isNewPlace;
+            newPlaceZone.required = isNewPlace;
+            newPlaceName.required = isNewPlace && newPlaceType.value === 'HOTEL';
+            newPlaceAddress.required = isNewPlace && (newPlaceType.value === 'AIRBNB' || newPlaceType.value === 'POINT');
+
+            if (newPlaceAddressHelp) {
+                newPlaceAddressHelp.textContent = newPlaceAddress.required
+                    ? 'Requerida para que operacion pueda ubicar este servicio.'
+                    : 'Opcional para hoteles conocidos; util si quieres dejar referencia operativa.';
+            }
+
+            if (isNewPlace) {
+                var typedDestination = (placeQuery.value || '').trim();
+                if ((newPlaceName.value || '').trim() === '' && (newPlaceAddress.value || '').trim() === '' && typedDestination !== '') {
+                    newPlaceType.value = operationType.value === 'INTERHOTEL' ? 'POINT' : 'AIRBNB';
+                    newPlaceAddress.value = typedDestination;
+                }
+                closeList(suggestions);
+                placeIdInput.value = '';
+                zoneIdInput.value = newPlaceZone.value || '';
+                var zoneText = newPlaceZone.options[newPlaceZone.selectedIndex]
+                    ? newPlaceZone.options[newPlaceZone.selectedIndex].text
+                    : '';
+                zoneNameInput.value = newPlaceZone.value ? zoneText.trim() : '';
+                var newDisplay = (newPlaceName.value || '').trim() || (newPlaceAddress.value || '').trim();
+                destinationNameInput.value = newDisplay;
+                placeQuery.value = newDisplay;
+            }
+
+            if (showNewPlaceAction) {
+                showNewPlaceAction.style.display = isNewPlace ? 'none' : 'inline-flex';
+            }
+            if (cancelNewPlaceAction) {
+                cancelNewPlaceAction.style.display = isNewPlace ? 'inline-flex' : 'none';
             }
         }
 
@@ -1396,6 +1646,10 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                     : 'Aeropuerto';
             }
 
+            if (placeMode.value === 'NEW') {
+                destinationDisplay = (newPlaceName.value || '').trim() || (newPlaceAddress.value || '').trim() || 'Nuevo lugar';
+            }
+
             if (!destinationDisplay) {
                 if (operationType.value === 'AIRPORT') {
                     destinationDisplay = directionSelect.value === 'DESTINATION_TO_AIRPORT'
@@ -1406,9 +1660,15 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                 }
             }
 
-            summaryOperation.textContent = resolveOperationSummary();
-            summaryCustomer.textContent = fullName !== '' ? fullName : 'Sin nombre aun';
-            summaryRoute.textContent = originDisplay + ' -> ' + destinationDisplay;
+            if (summaryOperation) {
+                summaryOperation.textContent = resolveOperationSummary();
+            }
+            if (summaryCustomer) {
+                summaryCustomer.textContent = fullName !== '' ? fullName : 'Sin nombre aun';
+            }
+            if (summaryRoute) {
+                summaryRoute.textContent = originDisplay + ' -> ' + destinationDisplay;
+            }
 
             if (summarySchedule && arrivalInput && departureInput) {
                 var arrivalValue = (arrivalInput.value || '').trim();
@@ -1433,7 +1693,17 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
 
             if (summaryReadyStatus && arrivalInput && departureInput) {
                 var readyCustomer = fullName !== '';
-                var readyPlace = parseInt(placeIdInput.value || '0', 10) > 0;
+                var readyPlace = false;
+                if (placeMode.value === 'NEW') {
+                    var newZoneReady = parseInt(newPlaceZone.value || '0', 10) > 0;
+                    if (newPlaceType.value === 'HOTEL') {
+                        readyPlace = newZoneReady && (newPlaceName.value || '').trim() !== '';
+                    } else {
+                        readyPlace = newZoneReady && (newPlaceAddress.value || '').trim() !== '';
+                    }
+                } else {
+                    readyPlace = parseInt(placeIdInput.value || '0', 10) > 0;
+                }
                 var readySchedule = false;
                 if (tripType.value === 'ROUND_TRIP') {
                     readySchedule = (arrivalInput.value || '').trim() !== '' && (departureInput.value || '').trim() !== '';
@@ -1447,8 +1717,12 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                     : 'Faltan datos para crear reserva';
             }
 
-            summaryPax.textContent = totalPax + ' pax';
-            summaryVehicle.textContent = selectedVehicleIdValue() ? selectedVehicleText : 'Sin unidad asignada';
+            if (summaryPax) {
+                summaryPax.textContent = totalPax + ' pax';
+            }
+            if (summaryVehicle) {
+                summaryVehicle.textContent = selectedVehicleIdValue() ? selectedVehicleText : 'Sin unidad asignada';
+            }
 
             if (summaryReportTotal && summaryReceiptTotal && summaryProfitTotal && summaryAgencyChargeStatus) {
                 var reportAmount = agencyReportInput ? parseAmount(agencyReportInput.value) : parseAmount(priceInput.value);
@@ -1485,6 +1759,7 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
         setupPlacesAutocomplete({
             queryInput: placeQuery,
             listNode: suggestions,
+            localItems: placesCatalog,
             onInputReset: function () {
                 placeIdInput.value = '';
                 zoneIdInput.value = '';
@@ -1498,12 +1773,14 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                 zoneNameInput.value = item.zone_name;
                 destinationNameInput.value = item.name;
                 fetchRateSuggestion();
-            }
+            },
+            onCreateNew: true
         });
 
         setupPlacesAutocomplete({
             queryInput: originQuery,
             listNode: originSuggestions,
+            localItems: placesCatalog,
             onInputReset: function () {
                 originNameInput.value = '';
             },
@@ -1512,6 +1789,32 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
                 originNameInput.value = item.name;
             }
         });
+
+        if (showNewPlaceAction) {
+            showNewPlaceAction.addEventListener('click', function () {
+                placeMode.value = 'NEW';
+                syncPlaceModeUi();
+                if (newPlaceZone) {
+                    newPlaceZone.focus();
+                }
+                syncSummary();
+            });
+        }
+
+        if (cancelNewPlaceAction) {
+            cancelNewPlaceAction.addEventListener('click', function () {
+                placeMode.value = 'EXISTING';
+                syncPlaceModeUi();
+                placeIdInput.value = '';
+                zoneIdInput.value = '';
+                zoneNameInput.value = '';
+                destinationNameInput.value = '';
+                if (placeQuery) {
+                    placeQuery.focus();
+                }
+                syncSummary();
+            });
+        }
 
         setupAirlinesAutocomplete();
 
@@ -1540,13 +1843,14 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
             syncSummary();
         });
 
-        [operationType, tripType, directionSelect, modeSelect, adultsInput, childrenInput, serviceTypeSelect, currencySelect, vehicleSelect, customerNameInput, customerLastNameInput, placeQuery, originQuery, agencyCollectionModeInput, agencyReportInput, agencyCollectedInput, arrivalInput, departureInput, flightNumberInput].forEach(function (node) {
+        [operationType, tripType, directionSelect, modeSelect, adultsInput, childrenInput, serviceTypeSelect, currencySelect, vehicleSelect, customerNameInput, customerLastNameInput, placeMode, placeQuery, newPlaceType, newPlaceName, newPlaceAddress, newPlaceCity, newPlaceZone, originQuery, agencyCollectionModeInput, agencyReportInput, agencyCollectedInput, arrivalInput, departureInput, flightNumberInput].forEach(function (node) {
             if (!node) {
                 return;
             }
 
             node.addEventListener('change', function () {
                 syncOperationUi();
+                syncPlaceModeUi();
                 renderVehicleRecommendation();
                 fetchRateSuggestion();
                 syncAgencyRules();
@@ -1554,6 +1858,7 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
             });
 
             node.addEventListener('input', function () {
+                syncPlaceModeUi();
                 renderVehicleRecommendation();
                 fetchRateSuggestion();
                 syncAgencyRules();
@@ -1573,6 +1878,7 @@ $serviceStatusLabels = \App\Core\StatusCatalog::serviceMap(true);
         }
 
         syncOperationUi();
+        syncPlaceModeUi();
         renderVehicleRecommendation();
         fetchRateSuggestion();
         syncAgencyRules();
