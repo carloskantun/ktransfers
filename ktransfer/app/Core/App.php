@@ -96,8 +96,11 @@ class App {
         $this->router->post('/admin/catalog/zones/edit', ZonesController::class . '@edit');
         
         $this->router->get('/admin/catalog/services', ServicesController::class . '@index');
+        $this->router->get('/admin/catalog/services/create', ServicesController::class . '@create');
+        $this->router->post('/admin/catalog/services/create', ServicesController::class . '@create');
         $this->router->get('/admin/catalog/services/edit', ServicesController::class . '@edit');
         $this->router->post('/admin/catalog/services/edit', ServicesController::class . '@edit');
+        $this->router->post('/admin/catalog/services/delete', ServicesController::class . '@delete');
         $this->router->get('/admin/catalog/currencies', CurrenciesController::class . '@index');
         $this->router->get('/admin/catalog/currencies/create', CurrenciesController::class . '@create');
         $this->router->post('/admin/catalog/currencies/create', CurrenciesController::class . '@create');
@@ -140,6 +143,7 @@ class App {
         $this->router->post('/admin/pricing/pax-ranges/create', PaxRangesController::class . '@create');
         $this->router->get('/admin/pricing/pax-ranges/edit', PaxRangesController::class . '@edit');
         $this->router->post('/admin/pricing/pax-ranges/edit', PaxRangesController::class . '@edit');
+        $this->router->post('/admin/pricing/pax-ranges/delete', PaxRangesController::class . '@delete');
         
         $this->router->get('/admin/accounting', AccountingController::class . '@index');
         $this->router->get('/admin/accounting/export', AccountingController::class . '@export');
@@ -226,7 +230,9 @@ class App {
             '/admin/catalog/zones/create' => 'catalog.manage',
             '/admin/catalog/zones/edit' => 'catalog.manage',
             '/admin/catalog/services' => 'catalog.manage',
+            '/admin/catalog/services/create' => 'catalog.manage',
             '/admin/catalog/services/edit' => 'catalog.manage',
+            '/admin/catalog/services/delete' => 'catalog.manage',
             '/admin/catalog/currencies' => 'catalog.manage',
             '/admin/catalog/currencies/create' => 'catalog.manage',
             '/admin/catalog/currencies/edit' => 'catalog.manage',
@@ -250,6 +256,7 @@ class App {
             '/admin/pricing/pax-ranges' => 'pricing.manage',
             '/admin/pricing/pax-ranges/create' => 'pricing.manage',
             '/admin/pricing/pax-ranges/edit' => 'pricing.manage',
+            '/admin/pricing/pax-ranges/delete' => 'pricing.manage',
             '/admin/accounting' => 'accounting.view',
             '/admin/accounting/export' => 'accounting.view',
             '/admin/kpis' => 'kpis.view',

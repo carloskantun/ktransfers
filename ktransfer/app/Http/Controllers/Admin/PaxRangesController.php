@@ -11,16 +11,21 @@ use App\Core\Validator;
 class PaxRangesController {
     public function index(Request $request): Response
     {
+        $status = trim((string) $request->query('status', ''));
         $db = DB::connection();
         $stmt = $db->query(
             'SELECT id, label, min_pax, max_pax, sort_order FROM pax_ranges ORDER BY min_pax ASC, sort_order ASC, id ASC'
         );
         $ranges = $stmt->fetchAll();
 
+        [$notice, $error] = $this->statusMessage($status);
+
         return Response::view('admin/pricing/pax_ranges/index', [
             'title' => 'PAX Ranges',
             'ranges' => $ranges,
             'csrf_token' => Csrf::token(),
+            'notice' => $notice,
+            'error_message' => $error,
         ], 'admin');
     }
 
@@ -61,17 +66,26 @@ class PaxRangesController {
         }
 
         $db = DB::connection();
-        $stmt = $db->prepare(
-            'INSERT INTO pax_ranges (label, min_pax, max_pax, sort_order) VALUES (:label, :min_pax, :max_pax, :sort_order)'
-        );
-        $stmt->execute([
-            'label' => $form['label'],
-            'min_pax' => (int) $form['min_pax'],
-            'max_pax' => (int) $form['max_pax'],
-            'sort_order' => (int) $form['sort_order'],
-        ]);
+        try {
+            $stmt = $db->prepare(
+                'INSERT INTO pax_ranges (label, min_pax, max_pax, sort_order) VALUES (:label, :min_pax, :max_pax, :sort_order)'
+            );
+            $stmt->execute([
+                'label' => $form['label'],
+                'min_pax' => (int) $form['min_pax'],
+                'max_pax' => (int) $form['max_pax'],
+                'sort_order' => (int) $form['sort_order'],
+            ]);
+        } catch (\PDOException $exception) {
+            return Response::view('admin/pricing/pax_ranges/create', [
+                'title' => 'Create PAX Range',
+                'csrf_token' => Csrf::token(),
+                'errors' => ['general' => 'No se pudo crear el rango. Verifica que no exista uno igual.'],
+                'form' => $form,
+            ], 'admin');
+        }
 
-        return Response::redirect('/admin/pricing/pax-ranges');
+        return Response::redirect('/admin/pricing/pax-ranges?status=created');
     }
 
     public function edit(Request $request): Response
@@ -139,15 +153,59 @@ class PaxRangesController {
                  sort_order = :sort_order
              WHERE id = :id'
         );
-        $updateStmt->execute([
-            'id' => $id,
-            'label' => $form['label'],
-            'min_pax' => (int) $form['min_pax'],
-            'max_pax' => (int) $form['max_pax'],
-            'sort_order' => (int) $form['sort_order'],
-        ]);
+        try {
+            $updateStmt->execute([
+                'id' => $id,
+                'label' => $form['label'],
+                'min_pax' => (int) $form['min_pax'],
+                'max_pax' => (int) $form['max_pax'],
+                'sort_order' => (int) $form['sort_order'],
+            ]);
+        } catch (\PDOException $exception) {
+            return Response::view('admin/pricing/pax_ranges/edit', [
+                'title' => 'Edit PAX Range',
+                'csrf_token' => Csrf::token(),
+                'errors' => ['general' => 'No se pudo actualizar el rango.'],
+                'form' => $form,
+            ], 'admin');
+        }
 
-        return Response::redirect('/admin/pricing/pax-ranges');
+        return Response::redirect('/admin/pricing/pax-ranges?status=updated');
+    }
+
+    public function delete(Request $request): Response
+    {
+        if ($request->method() !== 'POST') {
+            return Response::redirect('/admin/pricing/pax-ranges');
+        }
+
+        if (!Csrf::validate((string) $request->post('_csrf', ''))) {
+            return Response::redirect('/admin/pricing/pax-ranges?status=invalid_csrf');
+        }
+
+        $id = (int) $request->post('id', 0);
+        if ($id <= 0) {
+            return Response::redirect('/admin/pricing/pax-ranges?status=invalid_id');
+        }
+
+        $db = DB::connection();
+
+        $existsStmt = $db->prepare('SELECT id FROM pax_ranges WHERE id = :id LIMIT 1');
+        $existsStmt->execute(['id' => $id]);
+        if (!$existsStmt->fetch()) {
+            return Response::redirect('/admin/pricing/pax-ranges?status=not_found');
+        }
+
+        $usageStmt = $db->prepare('SELECT id FROM rate_rules WHERE pax_range_id = :id LIMIT 1');
+        $usageStmt->execute(['id' => $id]);
+        if ($usageStmt->fetch()) {
+            return Response::redirect('/admin/pricing/pax-ranges?status=in_use');
+        }
+
+        $deleteStmt = $db->prepare('DELETE FROM pax_ranges WHERE id = :id');
+        $deleteStmt->execute(['id' => $id]);
+
+        return Response::redirect('/admin/pricing/pax-ranges?status=deleted');
     }
 
     private function validateRangeForm(array $form): array
@@ -210,5 +268,27 @@ class PaxRangesController {
         ]);
 
         return (bool) $stmt->fetch();
+    }
+
+    private function statusMessage(string $status): array
+    {
+        $noticeMap = [
+            'created' => 'Rango de pasajeros creado correctamente.',
+            'updated' => 'Rango de pasajeros actualizado correctamente.',
+            'deleted' => 'Rango de pasajeros eliminado correctamente.',
+        ];
+
+        if (isset($noticeMap[$status])) {
+            return [$noticeMap[$status], ''];
+        }
+
+        $errorMap = [
+            'invalid_csrf' => 'Sesion expirada. Intenta nuevamente.',
+            'invalid_id' => 'Registro invalido.',
+            'not_found' => 'El rango no existe.',
+            'in_use' => 'No se puede eliminar porque el rango esta en uso en tarifas.',
+        ];
+
+        return ['', $errorMap[$status] ?? ''];
     }
 }
