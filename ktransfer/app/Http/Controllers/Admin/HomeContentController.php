@@ -122,6 +122,12 @@ class HomeContentController
             'payment_paypal_client_id' => trim((string) $request->post('payment_paypal_client_id', '')),
             'payment_paypal_client_secret' => trim((string) $request->post('payment_paypal_client_secret', '')),
 
+            'payment_openpay_enabled' => $request->post('payment_openpay_enabled') !== null ? '1' : '0',
+            'payment_openpay_merchant_id' => trim((string) $request->post('payment_openpay_merchant_id', '')),
+            'payment_openpay_public_key' => trim((string) $request->post('payment_openpay_public_key', '')),
+            'payment_openpay_private_key' => trim((string) $request->post('payment_openpay_private_key', '')),
+            'payment_openpay_sandbox' => $request->post('payment_openpay_sandbox') !== null ? '1' : '0',
+
             'gtm_container_id' => strtoupper(trim((string) $request->post('gtm_container_id', ''))),
             'custom_head_script' => $this->sanitizeCustomScript((string) $request->post('custom_head_script', '')),
 
@@ -320,6 +326,13 @@ class HomeContentController
                     'client_id' => (string) $form['payment_paypal_client_id'],
                     'client_secret' => (string) $form['payment_paypal_client_secret'],
                 ],
+                'openpay' => [
+                    'enabled' => $form['payment_openpay_enabled'] === '1',
+                    'merchant_id' => (string) $form['payment_openpay_merchant_id'],
+                    'public_key' => (string) $form['payment_openpay_public_key'],
+                    'private_key' => (string) $form['payment_openpay_private_key'],
+                    'sandbox' => $form['payment_openpay_sandbox'] === '1',
+                ],
             ],
             'tracking' => [
                 'gtm_container_id' => (string) $form['gtm_container_id'],
@@ -380,6 +393,12 @@ class HomeContentController
             'payment_paypal_enabled' => !empty($content['payment_settings']['paypal']['enabled']) ? '1' : '0',
             'payment_paypal_client_id' => (string) ($content['payment_settings']['paypal']['client_id'] ?? ''),
             'payment_paypal_client_secret' => (string) ($content['payment_settings']['paypal']['client_secret'] ?? ''),
+
+            'payment_openpay_enabled' => !empty($content['payment_settings']['openpay']['enabled']) ? '1' : '0',
+            'payment_openpay_merchant_id' => (string) ($content['payment_settings']['openpay']['merchant_id'] ?? ''),
+            'payment_openpay_public_key' => (string) ($content['payment_settings']['openpay']['public_key'] ?? ''),
+            'payment_openpay_private_key' => (string) ($content['payment_settings']['openpay']['private_key'] ?? ''),
+            'payment_openpay_sandbox' => !empty($content['payment_settings']['openpay']['sandbox']) ? '1' : '0',
 
             'gtm_container_id' => strtoupper(trim((string) ($content['tracking']['gtm_container_id'] ?? ''))),
             'custom_head_script' => (string) ($content['tracking']['custom_head_script'] ?? ''),

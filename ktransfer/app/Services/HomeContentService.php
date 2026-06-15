@@ -133,6 +133,13 @@ class HomeContentService {
                     'client_id' => '',
                     'client_secret' => '',
                 ],
+                'openpay' => [
+                    'enabled' => false,
+                    'merchant_id' => '',
+                    'public_key' => '',
+                    'private_key' => '',
+                    'sandbox' => true,
+                ],
             ],
             'tracking' => [
                 'gtm_container_id' => '',

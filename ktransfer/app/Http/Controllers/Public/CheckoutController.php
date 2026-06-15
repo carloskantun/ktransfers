@@ -12,6 +12,7 @@ use App\Services\HomeContentService;
 class CheckoutController {
     private const DEFAULT_AIRPORT_LABEL = 'Aeropuerto de Cancun';
     private const MANUAL_PAYMENT_METHODS = ['MANUAL', 'BANK', 'CASH', 'CARD', 'PAYPAL'];
+    private const MANUAL_ONBOARD_PAYMENT_METHOD = 'PAGO_EN_ABORDAR';
     private const MERCADO_PAGO_API_BASE = 'https://api.mercadopago.com';
 
     public function start(Request $request): Response
@@ -115,6 +116,12 @@ class CheckoutController {
             'booking_code' => $bookingCode,
             'csrf_token' => Csrf::token(),
             'mercado_pago_enabled' => $this->mercadoPagoIsConfigured(),
+            'openpay_enabled' => $this->openPayIsConfigured(),
+            'openpay_public_key' => $this->openPayIsConfigured() ? (string) ($this->openPaySettings()['public_key'] ?? '') : '',
+            'openpay_merchant_id' => $this->openPayIsConfigured() ? (string) ($this->openPaySettings()['merchant_id'] ?? '') : '',
+            'openpay_sandbox' => $this->openPayIsConfigured() && !empty($this->openPaySettings()['sandbox']),
+            'stripe_enabled' => $this->stripeIsConfigured(),
+            'paypal_enabled' => $this->payPalIsConfigured(),
         ]);
     }
 
@@ -723,7 +730,15 @@ class CheckoutController {
     private function normalizeManualPaymentMethod(string $paymentMethod): string
     {
         $paymentMethod = strtoupper(trim($paymentMethod));
-        return in_array($paymentMethod, self::MANUAL_PAYMENT_METHODS, true) ? $paymentMethod : 'MANUAL';
+        if (!in_array($paymentMethod, self::MANUAL_PAYMENT_METHODS, true)) {
+            return self::MANUAL_ONBOARD_PAYMENT_METHOD;
+        }
+
+        if (in_array($paymentMethod, ['MANUAL', 'BANK', 'CASH', 'CARD'], true)) {
+            return self::MANUAL_ONBOARD_PAYMENT_METHOD;
+        }
+
+        return $paymentMethod;
     }
 
     private function resolveRouteLabels(string $direction, string $placeName): array
@@ -801,5 +816,819 @@ class CheckoutController {
         }
 
         return $candidate;
+    }
+
+    // -------------------------------------------------------------------------
+    // OpenPay
+    // -------------------------------------------------------------------------
+
+    public function startOpenPay(Request $request): Response
+    {
+        if (!Csrf::validate((string) $request->post('_csrf', ''))) {
+            return Response::redirect('/checkout/payment');
+        }
+
+        $settings = $this->openPaySettings();
+        if (empty($settings['enabled']) || trim((string) ($settings['private_key'] ?? '')) === '') {
+            return Response::redirect('/checkout/payment');
+        }
+
+        $cardToken = trim((string) $request->post('openpay_token', ''));
+        if ($cardToken === '') {
+            return Response::redirect('/checkout/payment');
+        }
+
+        try {
+            $booking = $this->createPendingCheckoutBooking($request, 'OPENPAY', 'OpenPay cargo pendiente');
+            $request->sessionSet('booking_id', (int) $booking['booking_id']);
+
+            $charge = $this->createOpenPayCharge($booking, $cardToken, $settings);
+            $transactionId = (string) ($charge['id'] ?? '');
+            if ($transactionId !== '') {
+                $this->updatePaymentReference((int) $booking['payment_id'], 'op_charge:' . $transactionId);
+            }
+
+            $redirectUrl = (string) ($charge['payment_method']['url'] ?? '');
+            if ($redirectUrl !== '') {
+                return Response::redirect($redirectUrl);
+            }
+
+            $this->applyOpenPayChargeStatus($booking['booking_code'], $charge);
+            return Response::redirect('/checkout/confirmation');
+        } catch (\Throwable $e) {
+            error_log('OpenPay start error: ' . $e->getMessage());
+            return Response::redirect('/checkout/payment');
+        }
+    }
+
+    public function openPayReturn(Request $request): Response
+    {
+        $id = trim((string) $request->query('id', ''));
+        if ($id !== '') {
+            $this->syncOpenPayPayment($id);
+        }
+
+        $bookingId = (int) $request->query('booking_id', 0);
+        if ($bookingId > 0) {
+            $request->sessionSet('booking_id', $bookingId);
+        }
+
+        return Response::redirect('/checkout/confirmation');
+    }
+
+    public function openPayWebhook(Request $request): Response
+    {
+        $payload = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            return Response::json(['ok' => true]);
+        }
+
+        $type = strtolower((string) ($payload['type'] ?? ''));
+        if (str_contains($type, 'charge')) {
+            $transactionId = trim((string) ($payload['transaction']['id'] ?? ''));
+            if ($transactionId !== '') {
+                $this->syncOpenPayPayment($transactionId);
+            }
+        }
+
+        return Response::json(['ok' => true]);
+    }
+
+    private function openPaySettings(): array
+    {
+        $homeContent = (new HomeContentService())->getHomePageContent();
+        $settings = $homeContent['payment_settings']['openpay'] ?? [];
+        return is_array($settings) ? $settings : [];
+    }
+
+    private function openPayIsConfigured(): bool
+    {
+        $settings = $this->openPaySettings();
+        return !empty($settings['enabled'])
+            && trim((string) ($settings['merchant_id'] ?? '')) !== ''
+            && trim((string) ($settings['private_key'] ?? '')) !== ''
+            && trim((string) ($settings['public_key'] ?? '')) !== '';
+    }
+
+    private function openPayApiBase(): string
+    {
+        $settings = $this->openPaySettings();
+        return !empty($settings['sandbox'])
+            ? 'https://sandbox-api.openpay.mx/v1'
+            : 'https://api.openpay.mx/v1';
+    }
+
+    private function createOpenPayCharge(array $booking, string $cardToken, array $settings): array
+    {
+        $baseUrl = $this->baseUrl();
+        $bookingId = (int) $booking['booking_id'];
+        $bookingCode = (string) $booking['booking_code'];
+        $merchantId = rawurlencode((string) ($settings['merchant_id'] ?? ''));
+
+        $payload = [
+            'method' => 'card',
+            'source_id' => $cardToken,
+            'amount' => round((float) $booking['price_total'], 2),
+            'currency' => strtoupper((string) $booking['currency_code']),
+            'description' => 'Private transfer ' . $bookingCode,
+            'order_id' => $bookingCode,
+            'redirect_url' => $baseUrl . '/checkout/openpay/return?booking_id=' . $bookingId,
+            'customer' => [
+                'name' => (string) ($booking['customer_name'] ?? ''),
+                'last_name' => (string) ($booking['customer_last_name'] ?? ''),
+                'email' => (string) ($booking['customer_email'] ?? ''),
+            ],
+        ];
+
+        return $this->openPayRequest('POST', '/' . $merchantId . '/charges', (string) ($settings['private_key'] ?? ''), $payload);
+    }
+
+    private function syncOpenPayPayment(string $transactionId): void
+    {
+        $settings = $this->openPaySettings();
+        $privateKey = trim((string) ($settings['private_key'] ?? ''));
+        $merchantId = rawurlencode(trim((string) ($settings['merchant_id'] ?? '')));
+        if ($privateKey === '' || $merchantId === '') {
+            return;
+        }
+
+        try {
+            $charge = $this->openPayRequest('GET', '/' . $merchantId . '/charges/' . rawurlencode($transactionId), $privateKey);
+            $bookingCode = trim((string) ($charge['order_id'] ?? ''));
+            if ($bookingCode === '') {
+                return;
+            }
+
+            $this->applyOpenPayChargeStatus($bookingCode, $charge);
+        } catch (\Throwable $e) {
+            error_log('OpenPay sync error: ' . $e->getMessage());
+        }
+    }
+
+    private function applyOpenPayChargeStatus(string $bookingCode, array $charge): void
+    {
+        $db = DB::connection();
+        $status = strtolower((string) ($charge['status'] ?? ''));
+        $transactionId = (string) ($charge['id'] ?? '');
+        $paidAt = (string) ($charge['operation_date'] ?? '');
+        $reference = $transactionId !== '' ? 'op_charge:' . $transactionId : 'op_charge';
+
+        $bookingStmt = $db->prepare('SELECT id, status FROM bookings WHERE booking_code = :booking_code LIMIT 1');
+        $bookingStmt->execute(['booking_code' => $bookingCode]);
+        $booking = $bookingStmt->fetch();
+        if (!is_array($booking)) {
+            return;
+        }
+
+        $bookingId = (int) $booking['id'];
+        $oldStatus = (string) ($booking['status'] ?? 'PENDING');
+
+        if ($status === 'completed') {
+            $db->beginTransaction();
+            try {
+                $paymentStmt = $db->prepare(
+                    'UPDATE booking_payments
+                     SET status = "PAID",
+                         reference = :reference,
+                         paid_at = COALESCE(:paid_at, NOW())
+                     WHERE booking_id = :booking_id
+                       AND method = "OPENPAY"
+                     ORDER BY id DESC
+                     LIMIT 1'
+                );
+                $paymentStmt->execute([
+                    'reference' => $reference,
+                    'paid_at' => $paidAt !== '' ? date('Y-m-d H:i:s', strtotime($paidAt)) : null,
+                    'booking_id' => $bookingId,
+                ]);
+
+                $updateBookingStmt = $db->prepare(
+                    'UPDATE bookings
+                     SET status = "CONFIRMED",
+                         payment_status = "PAID",
+                         updated_at = NOW()
+                     WHERE id = :booking_id'
+                );
+                $updateBookingStmt->execute(['booking_id' => $bookingId]);
+
+                if ($oldStatus !== 'CONFIRMED') {
+                    $historyStmt = $db->prepare(
+                        'INSERT INTO booking_status_history (booking_id, old_status, new_status, changed_by, note, created_at)
+                         VALUES (:booking_id, :old_status, "CONFIRMED", NULL, :note, NOW())'
+                    );
+                    $historyStmt->execute([
+                        'booking_id' => $bookingId,
+                        'old_status' => $oldStatus,
+                        'note' => 'Pago completado por OpenPay.',
+                    ]);
+                }
+
+                $db->commit();
+            } catch (\Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $e;
+            }
+
+            return;
+        }
+
+        if (in_array($status, ['failed', 'cancelled', 'refunded', 'chargeback'], true)) {
+            $paymentStmt = $db->prepare(
+                'UPDATE booking_payments
+                 SET status = :status,
+                     reference = :reference
+                 WHERE booking_id = :booking_id
+                   AND method = "OPENPAY"
+                 ORDER BY id DESC
+                 LIMIT 1'
+            );
+            $paymentStmt->execute([
+                'status' => $status === 'refunded' ? 'REFUNDED' : 'FAILED',
+                'reference' => $reference,
+                'booking_id' => $bookingId,
+            ]);
+        }
+    }
+
+    private function openPayRequest(string $method, string $path, string $privateKey, ?array $payload = null): array
+    {
+        if (!function_exists('curl_init')) {
+            throw new \RuntimeException('La extension cURL de PHP es requerida para OpenPay.');
+        }
+
+        $url = $this->openPayApiBase() . $path;
+        $ch = curl_init($url);
+        if ($ch === false) {
+            throw new \RuntimeException('No se pudo iniciar cURL para OpenPay.');
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_USERPWD, $privateKey . ':');
+        curl_setopt($ch, CURLOPT_TIMEOUT, 25);
+
+        if ($payload !== null) {
+            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json === false) {
+                throw new \RuntimeException('No se pudo codificar payload de OpenPay.');
+            }
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+        }
+
+        $responseBody = curl_exec($ch);
+        $statusCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if (!is_string($responseBody) || $responseBody === '') {
+            throw new \RuntimeException('OpenPay no respondio. ' . $error);
+        }
+
+        $decoded = json_decode($responseBody, true);
+        if (!is_array($decoded)) {
+            throw new \RuntimeException('Respuesta invalida de OpenPay.');
+        }
+
+        if ($statusCode < 200 || $statusCode >= 300) {
+            $message = (string) ($decoded['description'] ?? $decoded['error_code'] ?? 'Error de OpenPay');
+            throw new \RuntimeException($message);
+        }
+
+        return $decoded;
+    }
+
+    // -------------------------------------------------------------------------
+    // Stripe Checkout Session (server-side redirect)
+    // -------------------------------------------------------------------------
+
+    public function startStripe(Request $request): Response
+    {
+        if (!Csrf::validate((string) $request->post('_csrf', ''))) {
+            return Response::redirect('/checkout/payment');
+        }
+
+        $settings = $this->stripeSettings();
+        if (empty($settings['enabled']) || trim((string) ($settings['secret_key'] ?? '')) === '') {
+            return Response::redirect('/checkout/payment');
+        }
+
+        try {
+            $booking = $this->createPendingCheckoutBooking($request, 'STRIPE', 'Stripe Checkout Session pendiente');
+            $request->sessionSet('booking_id', (int) $booking['booking_id']);
+
+            $session = $this->createStripeSession($booking, (string) $settings['secret_key']);
+            $sessionId = (string) ($session['id'] ?? '');
+            if ($sessionId !== '') {
+                $this->updatePaymentReference((int) $booking['payment_id'], 'stripe_session:' . $sessionId);
+            }
+
+            $redirectUrl = (string) ($session['url'] ?? '');
+            if ($redirectUrl === '') {
+                throw new \RuntimeException('Stripe Checkout Session no devolvio URL de redireccion.');
+            }
+
+            return Response::redirect($redirectUrl);
+        } catch (\Throwable $e) {
+            error_log('Stripe start error: ' . $e->getMessage());
+            return Response::redirect('/checkout/payment');
+        }
+    }
+
+    public function stripeReturn(Request $request): Response
+    {
+        $sessionId = trim((string) $request->query('session_id', ''));
+        if ($sessionId !== '') {
+            $this->syncStripeSession($sessionId);
+        }
+
+        $bookingId = (int) $request->query('booking_id', 0);
+        if ($bookingId > 0) {
+            $request->sessionSet('booking_id', $bookingId);
+        }
+
+        return Response::redirect('/checkout/confirmation');
+    }
+
+    public function stripeWebhook(Request $request): Response
+    {
+        $payload = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            return Response::json(['ok' => true]);
+        }
+
+        $type = strtolower((string) ($payload['type'] ?? ''));
+        if ($type === 'checkout.session.completed') {
+            $sessionId = trim((string) ($payload['data']['object']['id'] ?? ''));
+            if ($sessionId !== '') {
+                $this->syncStripeSession($sessionId);
+            }
+        }
+
+        return Response::json(['ok' => true]);
+    }
+
+    private function stripeSettings(): array
+    {
+        $homeContent = (new HomeContentService())->getHomePageContent();
+        $settings = $homeContent['payment_settings']['stripe'] ?? [];
+        return is_array($settings) ? $settings : [];
+    }
+
+    private function stripeIsConfigured(): bool
+    {
+        $settings = $this->stripeSettings();
+        return !empty($settings['enabled'])
+            && trim((string) ($settings['secret_key'] ?? '')) !== ''
+            && trim((string) ($settings['public_key'] ?? '')) !== '';
+    }
+
+    private function createStripeSession(array $booking, string $secretKey): array
+    {
+        $baseUrl = $this->baseUrl();
+        $bookingId = (int) $booking['booking_id'];
+        $bookingCode = (string) $booking['booking_code'];
+        $amount = (int) round((float) $booking['price_total'] * 100);
+        $currency = strtolower((string) $booking['currency_code']);
+
+        $payload = [
+            'mode' => 'payment',
+            'line_items[0][price_data][currency]' => $currency,
+            'line_items[0][price_data][unit_amount]' => (string) $amount,
+            'line_items[0][price_data][product_data][name]' => 'Private transfer ' . $bookingCode,
+            'line_items[0][quantity]' => '1',
+            'customer_email' => (string) ($booking['customer_email'] ?? ''),
+            'client_reference_id' => $bookingCode,
+            'metadata[booking_id]' => (string) $bookingId,
+            'metadata[booking_code]' => $bookingCode,
+            'success_url' => $baseUrl . '/checkout/stripe/return?booking_id=' . $bookingId . '&session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => $baseUrl . '/checkout/payment',
+        ];
+
+        return $this->stripeRequest('POST', '/v1/checkout/sessions', $secretKey, $payload);
+    }
+
+    private function syncStripeSession(string $sessionId): void
+    {
+        $settings = $this->stripeSettings();
+        $secretKey = trim((string) ($settings['secret_key'] ?? ''));
+        if ($secretKey === '') {
+            return;
+        }
+
+        try {
+            $session = $this->stripeRequest('GET', '/v1/checkout/sessions/' . rawurlencode($sessionId), $secretKey);
+            $bookingCode = trim((string) ($session['client_reference_id'] ?? ''));
+            if ($bookingCode === '') {
+                $metadata = is_array($session['metadata'] ?? null) ? $session['metadata'] : [];
+                $bookingCode = trim((string) ($metadata['booking_code'] ?? ''));
+            }
+            if ($bookingCode === '') {
+                return;
+            }
+
+            $this->applyStripeSessionStatus($bookingCode, $session);
+        } catch (\Throwable $e) {
+            error_log('Stripe sync error: ' . $e->getMessage());
+        }
+    }
+
+    private function applyStripeSessionStatus(string $bookingCode, array $session): void
+    {
+        $db = DB::connection();
+        $status = strtolower((string) ($session['payment_status'] ?? ''));
+        $sessionId = (string) ($session['id'] ?? '');
+        $reference = $sessionId !== '' ? 'stripe_session:' . $sessionId : 'stripe_session';
+
+        $bookingStmt = $db->prepare('SELECT id, status FROM bookings WHERE booking_code = :booking_code LIMIT 1');
+        $bookingStmt->execute(['booking_code' => $bookingCode]);
+        $booking = $bookingStmt->fetch();
+        if (!is_array($booking)) {
+            return;
+        }
+
+        $bookingId = (int) $booking['id'];
+        $oldStatus = (string) ($booking['status'] ?? 'PENDING');
+
+        if ($status === 'paid') {
+            $db->beginTransaction();
+            try {
+                $paymentStmt = $db->prepare(
+                    'UPDATE booking_payments
+                     SET status = "PAID",
+                         reference = :reference,
+                         paid_at = NOW()
+                     WHERE booking_id = :booking_id
+                       AND method = "STRIPE"
+                     ORDER BY id DESC
+                     LIMIT 1'
+                );
+                $paymentStmt->execute(['reference' => $reference, 'booking_id' => $bookingId]);
+
+                $db->prepare(
+                    'UPDATE bookings SET status = "CONFIRMED", payment_status = "PAID", updated_at = NOW() WHERE id = :id'
+                )->execute(['id' => $bookingId]);
+
+                if ($oldStatus !== 'CONFIRMED') {
+                    $db->prepare(
+                        'INSERT INTO booking_status_history (booking_id, old_status, new_status, changed_by, note, created_at)
+                         VALUES (:booking_id, :old_status, "CONFIRMED", NULL, :note, NOW())'
+                    )->execute([
+                        'booking_id' => $bookingId,
+                        'old_status' => $oldStatus,
+                        'note' => 'Pago completado por Stripe Checkout.',
+                    ]);
+                }
+
+                $db->commit();
+            } catch (\Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $e;
+            }
+
+            return;
+        }
+
+        if (in_array($status, ['unpaid', 'no_payment_required'], true) && strtolower((string) ($session['status'] ?? '')) === 'expired') {
+            $db->prepare(
+                'UPDATE booking_payments SET status = "FAILED", reference = :reference
+                 WHERE booking_id = :booking_id AND method = "STRIPE" ORDER BY id DESC LIMIT 1'
+            )->execute(['reference' => $reference, 'booking_id' => $bookingId]);
+        }
+    }
+
+    private function stripeRequest(string $method, string $path, string $secretKey, ?array $payload = null): array
+    {
+        if (!function_exists('curl_init')) {
+            throw new \RuntimeException('La extension cURL de PHP es requerida para Stripe.');
+        }
+
+        $ch = curl_init('https://api.stripe.com' . $path);
+        if ($ch === false) {
+            throw new \RuntimeException('No se pudo iniciar cURL para Stripe.');
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        curl_setopt($ch, CURLOPT_USERPWD, $secretKey . ':');
+        curl_setopt($ch, CURLOPT_TIMEOUT, 25);
+
+        if ($payload !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($payload));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
+        }
+
+        $responseBody = curl_exec($ch);
+        $statusCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if (!is_string($responseBody) || $responseBody === '') {
+            throw new \RuntimeException('Stripe no respondio. ' . $error);
+        }
+
+        $decoded = json_decode($responseBody, true);
+        if (!is_array($decoded)) {
+            throw new \RuntimeException('Respuesta invalida de Stripe.');
+        }
+
+        if ($statusCode < 200 || $statusCode >= 300) {
+            $message = (string) ($decoded['error']['message'] ?? 'Error de Stripe');
+            throw new \RuntimeException($message);
+        }
+
+        return $decoded;
+    }
+
+    // -------------------------------------------------------------------------
+    // PayPal Orders API (server-side redirect)
+    // -------------------------------------------------------------------------
+
+    public function startPayPal(Request $request): Response
+    {
+        if (!Csrf::validate((string) $request->post('_csrf', ''))) {
+            return Response::redirect('/checkout/payment');
+        }
+
+        $settings = $this->payPalSettings();
+        if (empty($settings['enabled']) || trim((string) ($settings['client_id'] ?? '')) === '') {
+            return Response::redirect('/checkout/payment');
+        }
+
+        try {
+            $booking = $this->createPendingCheckoutBooking($request, 'PAYPAL', 'PayPal Order pendiente');
+            $request->sessionSet('booking_id', (int) $booking['booking_id']);
+
+            $accessToken = $this->payPalGetAccessToken($settings);
+            $order = $this->createPayPalOrder($booking, $accessToken, $settings);
+            $orderId = (string) ($order['id'] ?? '');
+            if ($orderId !== '') {
+                $this->updatePaymentReference((int) $booking['payment_id'], 'pp_order:' . $orderId);
+            }
+
+            $approveUrl = '';
+            foreach ((array) ($order['links'] ?? []) as $link) {
+                if (is_array($link) && ($link['rel'] ?? '') === 'approve') {
+                    $approveUrl = (string) ($link['href'] ?? '');
+                    break;
+                }
+            }
+
+            if ($approveUrl === '') {
+                throw new \RuntimeException('PayPal Order no devolvio URL de aprobacion.');
+            }
+
+            return Response::redirect($approveUrl);
+        } catch (\Throwable $e) {
+            error_log('PayPal start error: ' . $e->getMessage());
+            return Response::redirect('/checkout/payment');
+        }
+    }
+
+    public function payPalReturn(Request $request): Response
+    {
+        $orderId = trim((string) $request->query('token', ''));
+        if ($orderId !== '') {
+            $settings = $this->payPalSettings();
+            try {
+                $accessToken = $this->payPalGetAccessToken($settings);
+                $captured = $this->capturePayPalOrder($orderId, $accessToken, $settings);
+                $bookingCode = trim((string) ($captured['purchase_units'][0]['reference_id'] ?? ''));
+                if ($bookingCode !== '') {
+                    $this->applyPayPalOrderStatus($bookingCode, $captured);
+                }
+            } catch (\Throwable $e) {
+                error_log('PayPal capture error: ' . $e->getMessage());
+            }
+        }
+
+        $bookingId = (int) $request->query('booking_id', 0);
+        if ($bookingId > 0) {
+            $request->sessionSet('booking_id', $bookingId);
+        }
+
+        return Response::redirect('/checkout/confirmation');
+    }
+
+    public function payPalWebhook(Request $request): Response
+    {
+        $payload = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            return Response::json(['ok' => true]);
+        }
+
+        $eventType = strtoupper((string) ($payload['event_type'] ?? ''));
+        if ($eventType === 'CHECKOUT.ORDER.APPROVED') {
+            $orderId = trim((string) ($payload['resource']['id'] ?? ''));
+            if ($orderId !== '') {
+                $settings = $this->payPalSettings();
+                try {
+                    $accessToken = $this->payPalGetAccessToken($settings);
+                    $captured = $this->capturePayPalOrder($orderId, $accessToken, $settings);
+                    $bookingCode = trim((string) ($captured['purchase_units'][0]['reference_id'] ?? ''));
+                    if ($bookingCode !== '') {
+                        $this->applyPayPalOrderStatus($bookingCode, $captured);
+                    }
+                } catch (\Throwable $e) {
+                    error_log('PayPal webhook capture error: ' . $e->getMessage());
+                }
+            }
+        }
+
+        return Response::json(['ok' => true]);
+    }
+
+    private function payPalSettings(): array
+    {
+        $homeContent = (new HomeContentService())->getHomePageContent();
+        $settings = $homeContent['payment_settings']['paypal'] ?? [];
+        return is_array($settings) ? $settings : [];
+    }
+
+    private function payPalIsConfigured(): bool
+    {
+        $settings = $this->payPalSettings();
+        return !empty($settings['enabled'])
+            && trim((string) ($settings['client_id'] ?? '')) !== ''
+            && trim((string) ($settings['client_secret'] ?? '')) !== '';
+    }
+
+    private function payPalApiBase(array $settings): string
+    {
+        return !empty($settings['sandbox'])
+            ? 'https://api-m.sandbox.paypal.com'
+            : 'https://api-m.paypal.com';
+    }
+
+    private function payPalGetAccessToken(array $settings): string
+    {
+        $clientId = (string) ($settings['client_id'] ?? '');
+        $clientSecret = (string) ($settings['client_secret'] ?? '');
+        $base = $this->payPalApiBase($settings);
+
+        $ch = curl_init($base . '/v1/oauth2/token');
+        if ($ch === false) {
+            throw new \RuntimeException('No se pudo iniciar cURL para PayPal OAuth.');
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_USERPWD, $clientId . ':' . $clientSecret);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, 'grant_type=client_credentials');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+
+        $body = curl_exec($ch);
+        curl_close($ch);
+
+        if (!is_string($body)) {
+            throw new \RuntimeException('PayPal OAuth no respondio.');
+        }
+
+        $decoded = json_decode($body, true);
+        $token = (string) ($decoded['access_token'] ?? '');
+        if ($token === '') {
+            throw new \RuntimeException('PayPal OAuth no devolvio access_token.');
+        }
+
+        return $token;
+    }
+
+    private function createPayPalOrder(array $booking, string $accessToken, array $settings): array
+    {
+        $baseUrl = $this->baseUrl();
+        $bookingId = (int) $booking['booking_id'];
+        $bookingCode = (string) $booking['booking_code'];
+
+        $payload = [
+            'intent' => 'CAPTURE',
+            'purchase_units' => [
+                [
+                    'reference_id' => $bookingCode,
+                    'description' => 'Private transfer ' . $bookingCode,
+                    'amount' => [
+                        'currency_code' => strtoupper((string) $booking['currency_code']),
+                        'value' => number_format((float) $booking['price_total'], 2, '.', ''),
+                    ],
+                ],
+            ],
+            'application_context' => [
+                'return_url' => $baseUrl . '/checkout/paypal/return?booking_id=' . $bookingId,
+                'cancel_url' => $baseUrl . '/checkout/payment',
+                'brand_name' => 'KTransfers',
+                'user_action' => 'PAY_NOW',
+            ],
+        ];
+
+        return $this->payPalRequest('POST', '/v2/checkout/orders', $accessToken, $settings, $payload);
+    }
+
+    private function capturePayPalOrder(string $orderId, string $accessToken, array $settings): array
+    {
+        return $this->payPalRequest('POST', '/v2/checkout/orders/' . rawurlencode($orderId) . '/capture', $accessToken, $settings);
+    }
+
+    private function applyPayPalOrderStatus(string $bookingCode, array $order): void
+    {
+        $db = DB::connection();
+        $status = strtoupper((string) ($order['status'] ?? ''));
+        $orderId = (string) ($order['id'] ?? '');
+        $reference = $orderId !== '' ? 'pp_order:' . $orderId : 'pp_order';
+
+        $bookingStmt = $db->prepare('SELECT id, status FROM bookings WHERE booking_code = :booking_code LIMIT 1');
+        $bookingStmt->execute(['booking_code' => $bookingCode]);
+        $booking = $bookingStmt->fetch();
+        if (!is_array($booking)) {
+            return;
+        }
+
+        $bookingId = (int) $booking['id'];
+        $oldStatus = (string) ($booking['status'] ?? 'PENDING');
+
+        if ($status === 'COMPLETED') {
+            $db->beginTransaction();
+            try {
+                $db->prepare(
+                    'UPDATE booking_payments
+                     SET status = "PAID", reference = :reference, paid_at = NOW()
+                     WHERE booking_id = :booking_id AND method = "PAYPAL" ORDER BY id DESC LIMIT 1'
+                )->execute(['reference' => $reference, 'booking_id' => $bookingId]);
+
+                $db->prepare(
+                    'UPDATE bookings SET status = "CONFIRMED", payment_status = "PAID", updated_at = NOW() WHERE id = :id'
+                )->execute(['id' => $bookingId]);
+
+                if ($oldStatus !== 'CONFIRMED') {
+                    $db->prepare(
+                        'INSERT INTO booking_status_history (booking_id, old_status, new_status, changed_by, note, created_at)
+                         VALUES (:booking_id, :old_status, "CONFIRMED", NULL, :note, NOW())'
+                    )->execute([
+                        'booking_id' => $bookingId,
+                        'old_status' => $oldStatus,
+                        'note' => 'Pago capturado por PayPal.',
+                    ]);
+                }
+
+                $db->commit();
+            } catch (\Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $e;
+            }
+        }
+    }
+
+    private function payPalRequest(string $method, string $path, string $accessToken, array $settings, ?array $payload = null): array
+    {
+        if (!function_exists('curl_init')) {
+            throw new \RuntimeException('La extension cURL de PHP es requerida para PayPal.');
+        }
+
+        $ch = curl_init($this->payPalApiBase($settings) . $path);
+        if ($ch === false) {
+            throw new \RuntimeException('No se pudo iniciar cURL para PayPal.');
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $accessToken,
+            'Content-Type: application/json',
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 25);
+
+        if ($payload !== null) {
+            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json === false) {
+                throw new \RuntimeException('No se pudo codificar payload de PayPal.');
+            }
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+        }
+
+        $responseBody = curl_exec($ch);
+        $statusCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if (!is_string($responseBody) || $responseBody === '') {
+            throw new \RuntimeException('PayPal no respondio. ' . $error);
+        }
+
+        $decoded = json_decode($responseBody, true);
+        if (!is_array($decoded)) {
+            throw new \RuntimeException('Respuesta invalida de PayPal.');
+        }
+
+        if ($statusCode < 200 || $statusCode >= 300) {
+            $message = (string) ($decoded['message'] ?? $decoded['error_description'] ?? 'Error de PayPal');
+            throw new \RuntimeException($message);
+        }
+
+        return $decoded;
     }
 }

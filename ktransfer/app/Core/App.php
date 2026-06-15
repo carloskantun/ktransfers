@@ -63,10 +63,20 @@ class App {
         $this->router->post('/checkout/payment', CheckoutController::class . '@pay');
         $this->router->post('/checkout/mercado-pago/start', CheckoutController::class . '@startMercadoPago');
         $this->router->get('/checkout/mercado-pago/return', CheckoutController::class . '@mercadoPagoReturn');
+        $this->router->post('/checkout/stripe/start', CheckoutController::class . '@startStripe');
+        $this->router->get('/checkout/stripe/return', CheckoutController::class . '@stripeReturn');
+        $this->router->post('/checkout/paypal/start', CheckoutController::class . '@startPayPal');
+        $this->router->get('/checkout/paypal/return', CheckoutController::class . '@payPalReturn');
+        $this->router->post('/checkout/openpay/start', CheckoutController::class . '@startOpenPay');
+        $this->router->get('/checkout/openpay/return', CheckoutController::class . '@openPayReturn');
         $this->router->get('/checkout/confirmation', CheckoutController::class . '@confirmation');
         $this->router->get('/checkout/voucher', CheckoutController::class . '@voucher');
         $this->router->post('/webhooks/mercado-pago', CheckoutController::class . '@mercadoPagoWebhook');
         $this->router->get('/webhooks/mercado-pago', CheckoutController::class . '@mercadoPagoWebhook');
+        $this->router->post('/webhooks/openpay', CheckoutController::class . '@openPayWebhook');
+        $this->router->get('/webhooks/openpay', CheckoutController::class . '@openPayWebhook');
+        $this->router->post('/webhooks/stripe', CheckoutController::class . '@stripeWebhook');
+        $this->router->post('/webhooks/paypal', CheckoutController::class . '@payPalWebhook');
 
         // Admin auth routes (no middleware)
         $this->router->get('/admin/login', AuthController::class . '@showLogin');

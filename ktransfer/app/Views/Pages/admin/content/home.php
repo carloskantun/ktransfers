@@ -436,6 +436,33 @@ $contactTypes = [
                             </div>
                         </div>
                     </div>
+
+                    <div>
+                        <label class="switch">
+                            <input type="checkbox" name="payment_openpay_enabled" value="1" <?= ($form['payment_openpay_enabled'] ?? '0') === '1' ? 'checked' : '' ?>>
+                            OpenPay habilitado
+                        </label>
+                        <div style="margin-top:10px;">
+                            <label class="switch" style="margin-bottom:8px;">
+                                <input type="checkbox" name="payment_openpay_sandbox" value="1" <?= ($form['payment_openpay_sandbox'] ?? '1') === '1' ? 'checked' : '' ?>>
+                                Modo sandbox (pruebas)
+                            </label>
+                            <div class="settings-two-col">
+                                <div class="form-group">
+                                    <label>Merchant ID</label>
+                                    <input type="text" name="payment_openpay_merchant_id" value="<?= htmlspecialchars((string) ($form['payment_openpay_merchant_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="m_xxxxxxxxxxxxxxxxxxxxxxxx">
+                                </div>
+                                <div class="form-group">
+                                    <label>Public Key</label>
+                                    <input type="text" name="payment_openpay_public_key" value="<?= htmlspecialchars((string) ($form['payment_openpay_public_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxx">
+                                </div>
+                                <div class="form-group">
+                                    <label>Private Key (Secret Key)</label>
+                                    <input type="text" name="payment_openpay_private_key" value="<?= htmlspecialchars((string) ($form['payment_openpay_private_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="sk_xxxxxxxxxxxxxxxxxxxxxxxx">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
