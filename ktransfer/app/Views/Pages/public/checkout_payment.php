@@ -9,6 +9,10 @@ declare(strict_types=1);
 /** @var bool $openpay_sandbox */
 /** @var bool $stripe_enabled */
 /** @var bool $paypal_enabled */
+$publicT = is_callable($public_t ?? null) ? $public_t : static fn (string $key, string $fallback): string => $fallback;
+$t = static fn (string $key, string $fallback): string => $publicT('checkout.payment.' . $key, $fallback);
+$escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+
 $mercadoPagoEnabled = !empty($mercado_pago_enabled);
 $openPayEnabled     = !empty($openpay_enabled);
 $openPayPublicKey   = (string) ($openpay_public_key ?? '');
@@ -16,56 +20,57 @@ $openPayMerchantId  = (string) ($openpay_merchant_id ?? '');
 $openPaySandbox     = !empty($openpay_sandbox);
 $stripeEnabled      = !empty($stripe_enabled);
 $payPalEnabled      = !empty($paypal_enabled);
+$manualDefaultMethod = $payPalEnabled ? 'PAYPAL' : 'CARD';
 
 $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
 ?>
 <div class="flow-shell flow-stack">
 
     <section class="flow-hero">
-        <span class="flow-kicker">Paso 3 de 3</span>
-        <h1>Selecciona como pagar.</h1>
-        <p>Elige tu metodo preferido y confirma. Solo un paso mas.</p>
+        <span class="flow-kicker"><?= $escape($t('hero.kicker', 'Step 3 of 3')) ?></span>
+        <h1><?= $escape($t('hero.title', 'Choose your payment method.')) ?></h1>
+        <p><?= $escape($t('hero.description', 'Select your preferred option and confirm in one last step.')) ?></p>
     </section>
 
-    <section class="step-tracker" aria-label="Progreso de reserva">
+    <section class="step-tracker" aria-label="<?= $escape($t('tracker.aria', 'Booking progress')) ?>">
         <article class="step-chip">
-            <span class="step-label">Paso 1</span>
-            <strong>Elegir servicio</strong>
-            <span>Servicio seleccionado.</span>
+            <span class="step-label"><?= $escape($t('tracker.step_1.label', 'Step 1')) ?></span>
+            <strong><?= $escape($t('tracker.step_1.title', 'Choose service')) ?></strong>
+            <span><?= $escape($t('tracker.step_1.description', 'Service selected.')) ?></span>
         </article>
         <article class="step-chip">
-            <span class="step-label">Paso 2</span>
-            <strong>Ingresar datos</strong>
-            <span>Datos capturados correctamente.</span>
+            <span class="step-label"><?= $escape($t('tracker.step_2.label', 'Step 2')) ?></span>
+            <strong><?= $escape($t('tracker.step_2.title', 'Enter details')) ?></strong>
+            <span><?= $escape($t('tracker.step_2.description', 'Details captured correctly.')) ?></span>
         </article>
         <article class="step-chip is-active">
-            <span class="step-label">Paso 3</span>
-            <strong>Metodo de pago</strong>
-            <span>Elige y confirma.</span>
+            <span class="step-label"><?= $escape($t('tracker.step_3.label', 'Step 3')) ?></span>
+            <strong><?= $escape($t('tracker.step_3.title', 'Payment method')) ?></strong>
+            <span><?= $escape($t('tracker.step_3.description', 'Choose and confirm.')) ?></span>
         </article>
     </section>
 
     <section class="flow-card flow-stack">
         <div class="summary-grid compact">
             <div class="summary-item">
-                <span class="stat-label">Codigo</span>
-                <strong><?= htmlspecialchars($booking_code, ENT_QUOTES, 'UTF-8') ?></strong>
+                <span class="stat-label"><?= $escape($t('summary.code', 'Code')) ?></span>
+                <strong><?= $escape($booking_code) ?></strong>
             </div>
             <div class="summary-item">
-                <span class="stat-label">Estado</span>
-                <strong>Listo para pagar</strong>
+                <span class="stat-label"><?= $escape($t('summary.status', 'Status')) ?></span>
+                <strong><?= $escape($t('summary.ready', 'Ready to pay')) ?></strong>
             </div>
         </div>
     </section>
 
-    <section class="flow-card" style="padding:0;overflow:hidden;">
-        <div style="padding:24px 28px 20px;">
-            <span class="card-label">Metodo de pago</span>
-            <h2 style="margin:10px 0 4px;font-size:clamp(1.6rem,2.4vw,2.2rem);">¿Como prefieres pagar?</h2>
-            <p style="color:var(--muted);margin:0;line-height:1.7;">Selecciona una opcion para continuar.</p>
+    <section class="flow-card flow-card--payment">
+        <div class="pm-intro">
+            <span class="card-label"><?= $escape($t('section.kicker', 'Payment method')) ?></span>
+            <h2 class="pm-title"><?= $escape($t('section.title', 'How would you like to pay?')) ?></h2>
+            <p class="pm-subtitle"><?= $escape($t('section.description', 'Select one option to continue.')) ?></p>
         </div>
 
-        <div id="pm-list" role="radiogroup" aria-label="Metodos de pago">
+        <div id="pm-list" role="radiogroup" aria-label="<?= $escape($t('list.aria', 'Payment methods')) ?>">
 
             <?php if ($mercadoPagoEnabled): ?>
             <div class="pm-option" data-method="mp" role="radio" aria-checked="false" tabindex="0">
@@ -74,17 +79,17 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
                     <span class="pm-icon pm-icon--mp">MP</span>
                     <div class="pm-meta">
                         <strong>Mercado Pago</strong>
-                        <span>Tarjeta, transferencia o efectivo via Mercado Pago</span>
+                        <span><?= $escape($t('mp.meta', 'Card, transfer or cash through Mercado Pago')) ?></span>
                     </div>
                     <span class="pm-chevron">&#8250;</span>
                 </div>
                 <div class="pm-panel" hidden>
-                    <p style="color:var(--muted);margin:0 0 16px;line-height:1.7;">
-                        Seras redirigido a Mercado Pago para completar el pago de forma segura. Al aprobarse, la reserva se confirma automaticamente.
+                    <p class="pm-copy">
+                        <?= $escape($t('mp.description', 'You will be redirected to Mercado Pago to complete a secure payment. Once approved, the booking is confirmed automatically.')) ?>
                     </p>
                     <form method="post" action="/checkout/mercado-pago/start">
-                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                        <button type="submit" class="pm-cta">Continuar con Mercado Pago &rarr;</button>
+                        <input type="hidden" name="_csrf" value="<?= $escape($csrf_token) ?>">
+                        <button type="submit" class="pm-cta"><?= $escape($t('mp.cta', 'Continue with Mercado Pago')) ?> &rarr;</button>
                     </form>
                 </div>
             </div>
@@ -97,17 +102,17 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
                     <span class="pm-icon pm-icon--stripe">&#9889;</span>
                     <div class="pm-meta">
                         <strong>Stripe</strong>
-                        <span>Tarjeta de credito o debito — pago seguro via Stripe</span>
+                        <span><?= $escape($t('stripe.meta', 'Credit or debit card - secure payment via Stripe')) ?></span>
                     </div>
                     <span class="pm-chevron">&#8250;</span>
                 </div>
                 <div class="pm-panel" hidden>
-                    <p style="color:var(--muted);margin:0 0 16px;line-height:1.7;">
-                        Seras redirigido a la pagina de pago de Stripe. Al confirmar, regresaras automaticamente con la reserva lista.
+                    <p class="pm-copy">
+                        <?= $escape($t('stripe.description', 'You will be redirected to Stripe checkout. Once confirmed, you will return with your booking ready.')) ?>
                     </p>
                     <form method="post" action="/checkout/stripe/start">
-                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                        <button type="submit" class="pm-cta">Continuar con Stripe &rarr;</button>
+                        <input type="hidden" name="_csrf" value="<?= $escape($csrf_token) ?>">
+                        <button type="submit" class="pm-cta"><?= $escape($t('stripe.cta', 'Continue with Stripe')) ?> &rarr;</button>
                     </form>
                 </div>
             </div>
@@ -119,31 +124,31 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
                     <span class="pm-radio"></span>
                     <span class="pm-icon pm-icon--openpay">OP</span>
                     <div class="pm-meta">
-                        <strong>OpenPay — Tarjeta</strong>
-                        <span>Credito o debito — datos cifrados en tu navegador</span>
+                        <strong><?= $escape($t('openpay.title', 'OpenPay - Card')) ?></strong>
+                        <span><?= $escape($t('openpay.meta', 'Credit or debit - encrypted details in your browser')) ?></span>
                     </div>
                     <span class="pm-chevron">&#8250;</span>
                 </div>
                 <div class="pm-panel" hidden>
                     <form id="openpay-form" method="post" action="/checkout/openpay/start">
-                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="_csrf" value="<?= $escape($csrf_token) ?>">
                         <input type="hidden" name="openpay_token" id="openpay_token_id" value="">
 
                         <div class="pm-fields">
                             <div class="pm-field pm-field--full">
-                                <label for="op_holder_name">Nombre en la tarjeta</label>
-                                <input type="text" id="op_holder_name" autocomplete="cc-name" placeholder="Como aparece en la tarjeta">
+                                <label for="op_holder_name"><?= $escape($t('openpay.form.holder_name', 'Cardholder name')) ?></label>
+                                <input type="text" id="op_holder_name" autocomplete="cc-name" placeholder="<?= $escape($t('openpay.form.holder_name_placeholder', 'As shown on card')) ?>">
                             </div>
                             <div class="pm-field pm-field--full">
-                                <label for="op_card_number">Numero de tarjeta</label>
+                                <label for="op_card_number"><?= $escape($t('openpay.form.card_number', 'Card number')) ?></label>
                                 <input type="text" id="op_card_number" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="19">
                             </div>
                             <div class="pm-field">
-                                <label for="op_exp_month">Mes</label>
+                                <label for="op_exp_month"><?= $escape($t('openpay.form.exp_month', 'Month')) ?></label>
                                 <input type="text" id="op_exp_month" autocomplete="cc-exp-month" placeholder="MM" maxlength="2">
                             </div>
                             <div class="pm-field">
-                                <label for="op_exp_year">Año</label>
+                                <label for="op_exp_year"><?= $escape($t('openpay.form.exp_year', 'Year')) ?></label>
                                 <input type="text" id="op_exp_year" autocomplete="cc-exp-year" placeholder="AA" maxlength="2">
                             </div>
                             <div class="pm-field">
@@ -152,12 +157,17 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
                             </div>
                         </div>
 
-                        <div id="openpay-error" class="message-box warn" style="display:none;margin-bottom:14px;"></div>
+                        <div
+                            id="openpay-error"
+                            class="message-box warn pm-openpay-error"
+                            style="display:none;"
+                            data-fallback="<?= $escape($t('openpay.error', 'Unable to process card. Check your details and try again.')) ?>"
+                        ></div>
 
-                        <button type="submit" id="openpay-submit-btn" class="pm-cta">Pagar con OpenPay &rarr;</button>
+                        <button type="submit" id="openpay-submit-btn" class="pm-cta"><?= $escape($t('openpay.cta', 'Pay with OpenPay')) ?> &rarr;</button>
                     </form>
-                    <p style="margin-top:10px;font-size:0.76rem;color:var(--muted);line-height:1.6;">
-                        Tus datos de tarjeta se cifran en el navegador antes de enviarse. Nunca pasan por nuestros servidores.
+                    <p class="pm-note">
+                        <?= $escape($t('openpay.note', 'Card details are encrypted in your browser before sending. They never pass through our servers.')) ?>
                     </p>
                 </div>
             </div>
@@ -171,29 +181,33 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
                     <span class="pm-radio"></span>
                     <span class="pm-icon pm-icon--manual">&#128196;</span>
                     <div class="pm-meta">
-                        <strong>Pago coordinado por el equipo</strong>
-                        <span>Transferencia, efectivo, tarjeta presencial o PayPal<?= $payPalEnabled ? ' (externo)' : '' ?></span>
+                        <strong><?= $escape($t('manual.title', 'Payment coordinated by our team')) ?></strong>
+                        <span>
+                            <?= $escape($payPalEnabled
+                                ? $t('manual.meta_with_paypal', 'Transfer, cash, in-person card or PayPal (external)')
+                                : $t('manual.meta_no_paypal', 'Transfer, cash or in-person card')) ?>
+                        </span>
                     </div>
                     <span class="pm-chevron">&#8250;</span>
                 </div>
                 <div class="pm-panel" <?= !$hasOnlineGateway ? '' : 'hidden' ?>>
-                    <p style="color:var(--muted);margin:0 0 16px;line-height:1.7;">
-                        Envia la solicitud ahora y el equipo te contactara para coordinar el pago. PayPal se registra aparte; transferencia, efectivo y tarjeta presencial se guardan como pago en abordar.
+                    <p class="pm-copy">
+                        <?= $escape($t('manual.description', 'Submit your request now and our team will contact you to coordinate payment and final confirmation.')) ?>
                     </p>
-                    <div class="pill-list pm-manual-list" style="margin-bottom:16px;">
+                    <div class="pill-list pm-manual-list">
                         <?php if ($payPalEnabled): ?>
-                        <label class="pill pm-pill-button pm-pill-button--paypal"><input type="radio" name="payment_method" value="PAYPAL" form="confirm-booking-form"> PayPal</label>
+                            <label class="pill pm-pill-button pm-pill-button--paypal"><input type="radio" name="payment_method" value="PAYPAL" form="confirm-booking-form" <?= $manualDefaultMethod === 'PAYPAL' ? 'checked' : '' ?>> PayPal</label>
                         <?php endif; ?>
-                        <label class="pill pm-pill-button"><input type="radio" name="payment_method" value="CARD" form="confirm-booking-form"> Tarjeta presencial</label>
-                        <label class="pill pm-pill-button"><input type="radio" name="payment_method" value="BANK" form="confirm-booking-form" <?= !$payPalEnabled ? 'checked' : '' ?>> Transferencia</label>
-                        <label class="pill pm-pill-button"><input type="radio" name="payment_method" value="CASH" form="confirm-booking-form" <?= $payPalEnabled ? 'checked' : '' ?>> Efectivo</label>
+                        <label class="pill pm-pill-button"><input type="radio" name="payment_method" value="CARD" form="confirm-booking-form" <?= $manualDefaultMethod === 'CARD' ? 'checked' : '' ?>> <?= $escape($t('manual.method.card', 'In-person card')) ?></label>
+                        <label class="pill pm-pill-button"><input type="radio" name="payment_method" value="BANK" form="confirm-booking-form"> <?= $escape($t('manual.method.bank', 'Bank transfer')) ?></label>
+                        <label class="pill pm-pill-button"><input type="radio" name="payment_method" value="CASH" form="confirm-booking-form"> <?= $escape($t('manual.method.cash', 'Cash')) ?></label>
                     </div>
                     <form id="confirm-booking-form" method="post" action="/checkout/payment">
-                        <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                        <button type="submit" class="pm-cta">Enviar solicitud &rarr;</button>
+                        <input type="hidden" name="_csrf" value="<?= $escape($csrf_token) ?>">
+                        <button type="submit" class="pm-cta"><?= $escape($t('manual.cta', 'Submit request')) ?> &rarr;</button>
                     </form>
-                    <p style="margin-top:10px;font-size:0.76rem;color:var(--muted);line-height:1.6;">
-                        El equipo procesara la reserva manualmente tras recibir la solicitud.
+                    <p class="pm-note">
+                        <?= $escape($t('manual.note', 'Our team will process the booking manually after receiving your request.')) ?>
                     </p>
                 </div>
             </div>
@@ -201,8 +215,8 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
         </div><!-- /pm-list -->
     </section>
 
-    <div style="display:flex;gap:12px;align-items:center;padding:4px 0;">
-        <a class="action-link" href="/checkout/details" style="flex:0 0 auto;min-width:0;">&#8592; Volver a editar datos</a>
+    <div class="pm-back-row">
+        <a class="action-link" href="/checkout/details">&#8592; <?= $escape($t('back', 'Back to edit details')) ?></a>
     </div>
 
 </div>
@@ -239,7 +253,7 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
             btn.disabled = false;
             errBox.textContent = (res.data && res.data.description)
                 ? res.data.description
-                : 'Error al procesar la tarjeta. Revisa los datos e intenta de nuevo.';
+                : (errBox.getAttribute('data-fallback') || 'Unable to process card. Check your details and try again.');
             errBox.style.display = 'block';
         });
     });
@@ -269,7 +283,27 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
             activate(o);
         });
         o.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(o); }
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                activate(o);
+                return;
+            }
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                var next = options[(Array.prototype.indexOf.call(options, o) + 1) % options.length];
+                activate(next);
+                next.focus();
+                return;
+            }
+
+            if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                var idx = Array.prototype.indexOf.call(options, o);
+                var prev = options[(idx - 1 + options.length) % options.length];
+                activate(prev);
+                prev.focus();
+            }
         });
     });
 
@@ -281,6 +315,27 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
 
 <style>
 /* ── Payment method selector ─────────────────────────────────── */
+.flow-card--payment {
+    padding: 0;
+    overflow: hidden;
+}
+
+.pm-intro {
+    padding: 24px 28px 18px;
+}
+
+.pm-title {
+    margin: 10px 0 4px;
+    font-size: clamp(1.6rem, 2.2vw, 2.2rem);
+    line-height: 1.05;
+}
+
+.pm-subtitle {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.7;
+}
+
 #pm-list {
     border-top: 1px solid var(--line);
 }
@@ -288,6 +343,10 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
 .pm-option {
     border-bottom: 1px solid var(--line);
     transition: background 0.15s;
+}
+
+.pm-option.is-selected {
+    background: color-mix(in srgb, var(--surface-muted) 30%, transparent);
 }
 
 .pm-option:last-child {
@@ -387,10 +446,17 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
     padding: 0 28px 24px 84px;
 }
 
+.pm-copy {
+    margin: 0 0 16px;
+    color: var(--muted);
+    line-height: 1.7;
+}
+
 .pm-cta {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
     min-height: 50px;
     padding: 14px 24px;
     border: none;
@@ -407,7 +473,10 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
 .pm-cta:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .pm-manual-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+    margin-bottom: 16px;
 }
 
 .pm-pill-button {
@@ -430,6 +499,7 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    text-align: center;
     padding: 12px 16px;
     font-weight: 700;
     color: var(--ink);
@@ -453,6 +523,29 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
     border-color: #001f59;
     color: #ffffff;
     box-shadow: 0 10px 24px rgba(0, 48, 135, 0.22);
+}
+
+.pm-note {
+    margin-top: 10px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.pm-openpay-error {
+    margin-bottom: 14px;
+}
+
+.pm-back-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.pm-back-row .action-link {
+    flex: 0 0 auto;
+    min-width: 0;
 }
 
 /* Card fields grid */
@@ -480,218 +573,11 @@ $hasOnlineGateway = $mercadoPagoEnabled || $stripeEnabled || $openPayEnabled;
 }
 
 @media (max-width: 600px) {
+    .pm-intro { padding: 18px 18px 16px; }
     .pm-option-head { padding: 16px 18px; gap: 10px; }
     .pm-panel { padding: 0 18px 20px 18px; }
     .pm-fields { grid-template-columns: 1fr 1fr; }
     .pm-field--full { grid-column: 1 / -1; }
+    .pm-manual-list { grid-template-columns: 1fr; }
 }
 </style>
-<div class="flow-shell flow-stack">
-    <section class="flow-hero">
-        <span class="flow-kicker">Paso 3 de 3</span>
-        <h1>Confirma la reserva.</h1>
-        <p>En esta etapa solo revisamos el metodo de pago y confirmamos la solicitud. El objetivo es que puedas terminar en un clic, sin pasos confusos.</p>
-    </section>
-
-    <section class="step-tracker" aria-label="Progreso de reserva">
-        <article class="step-chip">
-            <span class="step-label">Paso 1</span>
-            <strong>Elegir servicio</strong>
-            <span>Servicio seleccionado.</span>
-        </article>
-        <article class="step-chip">
-            <span class="step-label">Paso 2</span>
-            <strong>Ingresar datos</strong>
-            <span>Datos capturados correctamente.</span>
-        </article>
-        <article class="step-chip is-active">
-            <span class="step-label">Paso 3</span>
-            <strong>Confirmar reserva</strong>
-            <span>Ultimo clic para enviar la solicitud.</span>
-        </article>
-    </section>
-
-    <section class="flow-card flow-stack">
-        <div class="summary-grid compact">
-            <div class="summary-item">
-                <span class="stat-label">Codigo</span>
-                <strong><?= htmlspecialchars($booking_code, ENT_QUOTES, 'UTF-8') ?></strong>
-            </div>
-            <div class="summary-item">
-                <span class="stat-label">Estado</span>
-                <strong>Listo para confirmar</strong>
-            </div>
-        </div>
-    </section>
-
-    <section class="split-grid">
-        <?php if ($mercadoPagoEnabled): ?>
-            <article class="flow-card flow-stack">
-                <div>
-                    <span class="card-label">Pago en linea</span>
-                    <h2>Mercado Pago</h2>
-                    <p>Paga en sandbox con Mercado Pago. Al aprobarse el pago, la reserva se confirma automaticamente.</p>
-                </div>
-
-                <form method="post" action="/checkout/mercado-pago/start">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                    <button type="submit">Pagar con Mercado Pago</button>
-                </form>
-            </article>
-        <?php endif; ?>
-
-        <?php if ($stripeEnabled): ?>
-            <article class="flow-card flow-stack">
-                <div>
-                    <span class="card-label">Pago con tarjeta</span>
-                    <h2>Stripe</h2>
-                    <p>Paga de forma segura con tarjeta de credito o debito. Seras redirigido a la pagina de pago de Stripe y regresaras automaticamente al confirmar.</p>
-                </div>
-
-                <form method="post" action="/checkout/stripe/start">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                    <button type="submit">Pagar con Stripe</button>
-                </form>
-            </article>
-        <?php endif; ?>
-
-        <?php if ($payPalEnabled): ?>
-            <article class="flow-card flow-stack">
-                <div>
-                    <span class="card-label">Pago en linea</span>
-                    <h2>PayPal</h2>
-                    <p>Paga con tu cuenta PayPal o con tarjeta a traves de PayPal. Seras redirigido a PayPal para completar el pago.</p>
-                </div>
-
-                <form method="post" action="/checkout/paypal/start">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                    <button type="submit">Pagar con PayPal</button>
-                </form>
-            </article>
-        <?php endif; ?>
-
-        <?php if ($openPayEnabled): ?>
-            <article class="flow-card flow-stack" id="openpay-card">
-                <div>
-                    <span class="card-label">Pago con tarjeta</span>
-                    <h2>OpenPay</h2>
-                    <p>Paga de forma segura con tu tarjeta de credito o debito. Los datos se cifran directamente en tu navegador antes de enviarse.</p>
-                </div>
-
-                <form id="openpay-form" method="post" action="/checkout/openpay/start">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="openpay_token" id="openpay_token_id" value="">
-
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label for="op_holder_name">Nombre en la tarjeta</label>
-                        <input type="text" id="op_holder_name" autocomplete="cc-name" placeholder="Como aparece en la tarjeta" style="width:100%;">
-                    </div>
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label for="op_card_number">Numero de tarjeta</label>
-                        <input type="text" id="op_card_number" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="19" style="width:100%;">
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                        <div class="form-group">
-                            <label for="op_exp_month">Mes (MM)</label>
-                            <input type="text" id="op_exp_month" autocomplete="cc-exp-month" placeholder="MM" maxlength="2" style="width:100%;">
-                        </div>
-                        <div class="form-group">
-                            <label for="op_exp_year">Año (YY)</label>
-                            <input type="text" id="op_exp_year" autocomplete="cc-exp-year" placeholder="YY" maxlength="2" style="width:100%;">
-                        </div>
-                    </div>
-                    <div class="form-group" style="margin-bottom:16px;">
-                        <label for="op_cvv2">CVV</label>
-                        <input type="text" id="op_cvv2" autocomplete="cc-csc" placeholder="3 o 4 digitos" maxlength="4" style="width:100%;">
-                    </div>
-
-                    <div id="openpay-error" class="message-box warn" style="display:none;margin-bottom:12px;"></div>
-
-                    <button type="submit" id="openpay-submit-btn">Pagar con OpenPay</button>
-                </form>
-
-                <p style="font-size:0.75rem;color:var(--muted,#777);margin-top:4px;">
-                    Procesado por OpenPay &mdash; sus datos de tarjeta nunca tocan nuestros servidores.
-                </p>
-            </article>
-
-            <script src="https://js.openpay.mx/openpay.v1.min.js"></script>
-            <script src="https://js.openpay.mx/openpay-data.v1.min.js"></script>
-            <script>
-            (function () {
-                var merchantId = <?= json_encode($openPayMerchantId) ?>;
-                var publicKey  = <?= json_encode($openPayPublicKey) ?>;
-                var sandbox    = <?= $openPaySandbox ? 'true' : 'false' ?>;
-
-                OpenPay.setId(merchantId);
-                OpenPay.setApiKey(publicKey);
-                OpenPay.setSandboxMode(sandbox);
-
-                document.getElementById('openpay-form').addEventListener('submit', function (e) {
-                    e.preventDefault();
-                    var btn = document.getElementById('openpay-submit-btn');
-                    var errBox = document.getElementById('openpay-error');
-                    btn.disabled = true;
-                    errBox.style.display = 'none';
-
-                    var cardData = {
-                        holder_name:  document.getElementById('op_holder_name').value.trim(),
-                        card_number:  document.getElementById('op_card_number').value.replace(/\s/g, ''),
-                        expiration_month: document.getElementById('op_exp_month').value.trim(),
-                        expiration_year:  document.getElementById('op_exp_year').value.trim(),
-                        cvv2: document.getElementById('op_cvv2').value.trim()
-                    };
-
-                    OpenPay.token.create(cardData, function (response) {
-                        document.getElementById('openpay_token_id').value = response.data.id;
-                        document.getElementById('openpay-form').submit();
-                    }, function (response) {
-                        btn.disabled = false;
-                        var msg = (response.data && response.data.description)
-                            ? response.data.description
-                            : 'Error al procesar la tarjeta. Revisa los datos e intenta de nuevo.';
-                        errBox.textContent = msg;
-                        errBox.style.display = 'block';
-                    });
-                });
-            })();
-            </script>
-        <?php endif; ?>
-
-        <article class="flow-card flow-stack">
-            <div>
-                <span class="card-label">Metodo de pago</span>
-                <h2>Opciones disponibles</h2>
-                <p>Estas son las formas de pago que el equipo puede gestionar para la reserva.</p>
-            </div>
-
-            <div class="pill-list">
-                <?php if (!$payPalEnabled): ?>
-                <label class="pill"><input type="radio" name="payment_method" value="PAYPAL" form="confirm-booking-form"> PayPal</label>
-                <?php endif; ?>
-                <label class="pill"><input type="radio" name="payment_method" value="CARD" form="confirm-booking-form"> Tarjeta de credito o debito</label>
-                <label class="pill"><input type="radio" name="payment_method" value="BANK" form="confirm-booking-form" checked> Transferencia bancaria</label>
-                <label class="pill"><input type="radio" name="payment_method" value="CASH" form="confirm-booking-form"> Pago en efectivo</label>
-            </div>
-
-            <div class="message-box warn">
-                En esta version MVP, la confirmacion se procesa manualmente por el equipo despues de enviar la solicitud.
-            </div>
-        </article>
-
-        <aside class="flow-card flow-stack">
-            <div>
-                <span class="card-label">Accion final</span>
-                <h3>Un solo clic</h3>
-                <p>Si todo se ve bien, confirma ahora y el equipo continuara con la reserva.</p>
-            </div>
-
-            <form id="confirm-booking-form" method="post" action="/checkout/payment">
-                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
-                <button type="submit">Confirmar reserva</button>
-            </form>
-
-            <a class="action-link" href="/checkout/details">Volver a editar datos</a>
-        </aside>
-    </section>
-</div>
